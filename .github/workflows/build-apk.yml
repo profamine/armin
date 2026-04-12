@@ -2,7 +2,7 @@ name: Build Android APK
 on:
   push:
     branches:
-      - main # أو master حسب اسم الفرع الرئيسي عندك
+      - master  # غيرنا main إلى master ليتناسب مع مشروعك
 
 jobs:
   build:
