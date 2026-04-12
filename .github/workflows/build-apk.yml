@@ -7,8 +7,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # حل مشكلة التحذير (Warning)
     steps:
       - name: Checkout Source
         uses: actions/checkout@v4
@@ -16,13 +14,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22 # نستخدم إصداراً أحدث
+          node-version: 20 # العودة للإصدار المستقر لتجنب مشاكل التوافق الحالية
 
       - name: Install Dependencies
         run: npm install
 
       - name: Build Web Project
-        run: npm run build # هذا الأمر سينتج مجلد dist
+        run: npm run build
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -30,9 +28,13 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      - name: Fix Permissions
+        # هذا السطر يحل مشكلة Exit Code 126
+        run: chmod +x android/gradlew
+
       - name: Build APK
         run: |
-          npx cap sync # هذا الأمر سينسخ ملفات dist إلى مجلد android
+          npx cap sync
           cd android && ./gradlew assembleDebug
 
       - name: Upload APK
