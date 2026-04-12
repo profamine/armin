@@ -14,13 +14,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20 # العودة للإصدار المستقر لتجنب مشاكل التوافق الحالية
+          node-version: 20
 
       - name: Install Dependencies
         run: npm install
 
       - name: Build Web Project
-        run: npm run build
+        # أضفنا CI=false لتجاهل التحذيرات التي قد توقف البناء في Vite
+        run: CI=false npm run build
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -28,12 +29,9 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Fix Permissions
-        # هذا السطر يحل مشكلة Exit Code 126
-        run: chmod +x android/gradlew
-
       - name: Build APK
         run: |
+          chmod +x android/gradlew
           npx cap sync
           cd android && ./gradlew assembleDebug
 
