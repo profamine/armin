@@ -14,13 +14,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22 # تم التحديث للمتطلب الجديد
 
       - name: Install Dependencies
         run: npm install
 
       - name: Build Web Project
-        # أضفنا CI=false لتجاهل التحذيرات التي قد توقف البناء في Vite
         run: CI=false npm run build
 
       - name: Setup Java
