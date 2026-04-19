@@ -1,5 +1,7 @@
-import React from 'react';
-import { Star, Lock, Check } from 'lucide-react';
+import React, { useState } from 'react';
+import { Star, Lock, Check, HelpCircle } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
+import AboutModal from '../components/AboutModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,14 +99,28 @@ export default function HomeScreen({
 }: {
   onStartLesson: (id: string) => void;
 }) {
+  const { t } = useLanguage();
+  const [showAboutModal, setShowAboutModal] = useState(false);
+
   return (
-    <div className="flex-1 overflow-y-auto pb-24 bg-gray-50">
+    <div className="flex-1 overflow-y-auto pb-24 bg-gray-50 relative">
+      {showAboutModal && <AboutModal onClose={() => setShowAboutModal(false)} />}
+      
       {/* ── Header ── */}
       <div className="bg-green-600 text-white px-6 pt-10 pb-8 rounded-b-3xl shadow-lg sticky top-0 z-10">
         <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Արաբերեն</h1>
-            <p className="text-green-200 text-sm mt-0.5">Մակարդակ A1 · 600 բառ</p>
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">{t('home.title')}</h1>
+              <p className="text-green-200 text-sm mt-0.5">{t('home.subtitle')}</p>
+            </div>
+            <button 
+              onClick={() => setShowAboutModal(true)}
+              className="mt-1 flex items-center justify-center w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+              aria-label="About the App"
+            >
+              <HelpCircle size={18} className="text-white" />
+            </button>
           </div>
           <div className="flex items-center gap-3">
             {/* XP pill */}
@@ -127,61 +143,61 @@ export default function HomeScreen({
             style={{ width: '28%' }}
           />
         </div>
-        <p className="text-green-200 text-xs mt-1.5">4 / 14 դաս ավարտված</p>
+        <p className="text-green-200 text-xs mt-1.5">{t('home.lessons_completed')}</p>
       </div>
 
       <div className="p-5 space-y-8">
         {/* ── Unit 1 ── */}
         <UnitSection
-          title="Բաժին 1: Հիմքեր"
-          subtitle="Տառեր և ձայնավորներ"
+          title={t('home.unit1.title')}
+          subtitle={t('home.unit1.subtitle')}
           progress="3/3"
           color="green"
         >
-          <LessonNode title="Տառեր" status="completed" onClick={() => {}} />
-          <LessonNode title="Ձայնավորներ" status="completed" onClick={() => {}} isRight />
-          <LessonNode title="Բառեր" status="completed" onClick={() => {}} />
+          <LessonNode title={t('home.node.letters')} status="completed" onClick={() => {}} />
+          <LessonNode title={t('home.node.vowels')} status="completed" onClick={() => {}} isRight />
+          <LessonNode title={t('home.node.words')} status="completed" onClick={() => {}} />
         </UnitSection>
 
         {/* ── Unit 2 ── */}
         <UnitSection
-          title="Բաժին 2: Ընդլայնված հիմքեր"
-          subtitle="Մադ, Թանվին, Շադդա"
+          title={t('home.unit2.title')}
+          subtitle={t('home.unit2.subtitle')}
           progress="1/3"
           color="blue"
         >
-          <LessonNode title="Մադ (مد)" status="completed" onClick={() => {}} color="blue" />
+          <LessonNode title={t('home.node.madd')} status="completed" onClick={() => {}} color="blue" />
           <LessonNode
-            title="Թանվին"
+            title={t('home.node.tanween')}
             status="current"
             onClick={() => onStartLesson('tanween')}
             isRight
             color="blue"
           />
-          <LessonNode title="Շադդա" status="locked" onClick={() => {}} color="blue" />
+          <LessonNode title={t('home.node.shadda')} status="locked" onClick={() => {}} color="blue" />
         </UnitSection>
 
         {/* ── Unit 3 ── */}
         <UnitSection
-          title="Բաժին 3: Ամենօրյա բառեր"
-          subtitle="Ծանոթություն, Թվեր, Ժամանակ"
+          title={t('home.unit3.title')}
+          subtitle={t('home.unit3.subtitle')}
           progress="0/3"
           color="purple"
         >
-          <LessonNode title="Ծանոթություն" status="locked" onClick={() => {}} color="purple" />
-          <LessonNode title="Թվեր 1–10" status="locked" onClick={() => {}} isRight color="purple" />
-          <LessonNode title="Ժամանակ" status="locked" onClick={() => {}} color="purple" />
+          <LessonNode title={t('home.node.intro')} status="locked" onClick={() => {}} color="purple" />
+          <LessonNode title={t('home.node.numbers')} status="locked" onClick={() => {}} isRight color="purple" />
+          <LessonNode title={t('home.node.time')} status="locked" onClick={() => {}} color="purple" />
         </UnitSection>
 
         {/* ── Unit 4 ── */}
         <UnitSection
-          title="Բաժին 4: Նախադասություններ"
-          subtitle="Պարզ նախադասություններ և բայեր"
+          title={t('home.unit4.title')}
+          subtitle={t('home.unit4.subtitle')}
           progress="0/2"
           color="orange"
         >
-          <LessonNode title="Պարզ նախ." status="locked" onClick={() => {}} color="orange" />
-          <LessonNode title="Բայեր" status="locked" onClick={() => {}} isRight color="orange" />
+          <LessonNode title={t('home.node.simple_sentences')} status="locked" onClick={() => {}} color="orange" />
+          <LessonNode title={t('home.node.verbs')} status="locked" onClick={() => {}} isRight color="orange" />
         </UnitSection>
       </div>
     </div>
@@ -191,6 +207,7 @@ export default function HomeScreen({
 // ─── UnitSection ──────────────────────────────────────────────────────────────
 
 function UnitSection({ title, subtitle, progress, color, children }: UnitSectionProps) {
+  const { t } = useLanguage();
   const theme = COLOR_MAP[color];
   const [done, total] = progress.split('/').map(Number);
   const isComplete = done === total;
@@ -209,7 +226,7 @@ function UnitSection({ title, subtitle, progress, color, children }: UnitSection
           <div className="flex items-center gap-2">
             {isComplete && (
               <span className="text-xs bg-white border border-green-300 text-green-600 px-2 py-0.5 rounded-full font-semibold">
-                ✓ Ավարտված
+                ✓ {t('home.completed')}
               </span>
             )}
             <span
@@ -249,6 +266,7 @@ function LessonNode({
   isRight = false,
   color = 'green',
 }: LessonNodeProps) {
+  const { t } = useLanguage();
   const theme = COLOR_MAP[color];
 
   // Button appearance
@@ -309,7 +327,7 @@ function LessonNode({
           <span
             className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${theme.progressBadge}`}
           >
-            Սկսել →
+            {t('home.start')}
           </span>
         )}
       </div>

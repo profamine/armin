@@ -9,6 +9,7 @@ import LessonScreen from './screens/LessonScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import ChatScreen from './screens/ChatScreen';
 import BottomNav from './components/BottomNav';
+import { LanguageProvider } from './contexts/LanguageContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -17,6 +18,14 @@ type Screen = 'home' | 'lesson' | 'profile' | 'chat';
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 export default function App() {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
+  );
+}
+
+function AppContent() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
   const [activeLesson, setActiveLesson] = useState<string | null>(null);
 

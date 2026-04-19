@@ -32,6 +32,7 @@ import {
   Settings,
   Info,
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 // ===== Types =====
 interface Message {
@@ -163,16 +164,6 @@ const getAIResponse = (userMessage: string): Omit<Message, 'id' | 'timestamp'> =
   };
 };
 
-// ===== Quick Replies =====
-const quickReplies: QuickReply[] = [
-  { text: 'Բարև', arabic: 'مرحبا' },
-  { text: 'Շնորհակալություն', arabic: 'شكراً لك' },
-  { text: 'Թեստ', arabic: 'اختبار' },
-  { text: 'Օգնություն', arabic: 'مساعدة' },
-  { text: 'Նոր բառեր', arabic: 'كلمات جديدة' },
-  { text: 'Ուղղում', arabic: 'تصحيح' },
-];
-
 // ===== Typing Indicator Component =====
 function TypingIndicator() {
   return (
@@ -196,12 +187,13 @@ function TypingIndicator() {
 // ===== Vocabulary Card Component =====
 function VocabularyCard({ words }: { words: VocabWord[] }) {
   const [flipped, setFlipped] = useState<number | null>(null);
+  const { t } = useLanguage();
 
   return (
     <div className="mt-3 space-y-2">
       <p className="text-xs font-semibold text-emerald-700 flex items-center gap-1">
         <BookOpen size={12} />
-        Նոր բառեր / كلمات جديدة
+        {t('chat.new_words')}
       </p>
       <div className="flex flex-wrap gap-2">
         {words.map((word, idx) => (
@@ -243,6 +235,7 @@ function MessageBubble({
 }) {
   const [copied, setCopied] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
+  const { t } = useLanguage();
   const isUser = message.sender === 'user';
 
   const handleCopy = () => {
@@ -323,7 +316,7 @@ function MessageBubble({
                 className="mt-2 flex items-center gap-1 text-[11px] text-emerald-600 hover:text-emerald-700 font-medium transition-colors"
               >
                 <Languages size={12} />
-                {showTranslation ? 'Թաքցնել թարգմանությունը' : 'Տեսնել թարգմանությունը'}
+                {showTranslation ? t('chat.hide_translation') : t('chat.show_translation')}
               </button>
             )}
 
@@ -388,6 +381,17 @@ function MessageBubble({
 
 // ===== Main Chat Screen =====
 export default function ChatScreen() {
+  const { t } = useLanguage();
+  
+  // ===== Quick Replies =====
+  const quickReplies: QuickReply[] = [
+    { text: t('chat.quick_hello'), arabic: 'مرحبا' },
+    { text: t('chat.quick_thanks'), arabic: 'شكراً لك' },
+    { text: t('chat.quick_test'), arabic: 'اختبار' },
+    { text: t('chat.quick_help'), arabic: 'مساعدة' },
+    { text: t('chat.quick_new_words'), arabic: 'كلمات جديدة' },
+    { text: t('chat.quick_correction'), arabic: 'تصحيح' },
+  ];
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
@@ -505,10 +509,10 @@ export default function ChatScreen() {
           </div>
           <div>
             <h1 className="font-bold text-gray-800 text-sm flex items-center gap-1.5">
-              AI Ուսուցիչ
+              {t('chat.title')}
               <Sparkles size={14} className="text-amber-500" />
             </h1>
-            <p className="text-[11px] text-green-500 font-medium">Առցանց · Պատրաստ է օգնել</p>
+            <p className="text-[11px] text-green-500 font-medium">{t('chat.status')}</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -534,15 +538,15 @@ export default function ChatScreen() {
                     className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors"
                   >
                     <Trash2 size={16} className="text-gray-400" />
-                    Ջնջել զրույցը
+                    {t('chat.clear')}
                   </button>
                   <button className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors">
                     <Settings size={16} className="text-gray-400" />
-                    Կարգավորումներ
+                    {t('chat.settings')}
                   </button>
                   <button className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors">
                     <Info size={16} className="text-gray-400" />
-                    Օգնություն
+                    {t('chat.help')}
                   </button>
                 </div>
               </>
@@ -606,7 +610,7 @@ export default function ChatScreen() {
                 onClick={() => handleSend(reply.arabic)}
                 className="flex-shrink-0 px-3.5 py-2 bg-white border border-emerald-200 rounded-full text-xs font-medium text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 transition-all duration-200 shadow-sm hover:shadow active:scale-95"
               >
-                <span className="block text-sm">{reply.arabic}</span>
+                <span className="block text-sm">{reply.text}</span>
               </button>
             ))}
           </div>
@@ -631,7 +635,7 @@ export default function ChatScreen() {
                   handleSend();
                 }
               }}
-              placeholder="اكتب بالعربية أو بالأرمنية..."
+              placeholder={t('chat.input_placeholder')}
               className="w-full bg-gray-100 rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all outline-none border border-transparent focus:border-emerald-200 placeholder-gray-400"
               dir="auto"
             />

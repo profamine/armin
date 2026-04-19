@@ -1,0 +1,192 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+
+type Language = 'hy' | 'ar';
+
+interface LanguageContextType {
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: string) => string;
+}
+
+const translations: Record<string, Record<Language, string>> = {
+  // Bottom Nav
+  'nav.home': { hy: 'Գլխավոր', ar: 'الرئيسية' },
+  'nav.practice': { hy: 'Վարժություն', ar: 'تدريب' },
+  'nav.chat': { hy: 'Զրույց (AI)', ar: 'محادثة (AI)' },
+  'nav.profile': { hy: 'Պրոֆիլ', ar: 'حسابي' },
+  'nav.streak_banner': { hy: 'օր անընդմեջ', ar: 'أيام متتالية' },
+
+  // Home Screen
+  'home.title': { hy: 'Արաբերեն', ar: 'العربية' },
+  'home.subtitle': { hy: 'Մակարդակ A1 · 600 բառ', ar: 'المستوى A1 · 600 كلمة' },
+  'home.lessons_completed': { hy: '4 / 14 դաս ավարտված', ar: '4 / 14 درس مكتمل' },
+  'home.unit1.title': { hy: 'Բաժին 1: Հիմքեր', ar: 'الوحدة 1: الأساسيات' },
+  'home.unit1.subtitle': { hy: 'Տառեր և ձայնավորներ', ar: 'الحروف والحركات' },
+  'home.unit2.title': { hy: 'Բաժին 2: Ընդլայնված հիմքեր', ar: 'الوحدة 2: أساسيات متقدمة' },
+  'home.unit2.subtitle': { hy: 'Մադ, Թանվին, Շադդա', ar: 'المد، التنوين، الشدة' },
+  'home.unit3.title': { hy: 'Բաժին 3: Ամենօրյա բառեր', ar: 'الوحدة 3: كلمات يومية' },
+  'home.unit3.subtitle': { hy: 'Ծանոթություն, Թվեր, Ժամանակ', ar: 'التعارف، الأرقام، الوقت' },
+  'home.unit4.title': { hy: 'Բաժին 4: Նախադասություններ', ar: 'الوحدة 4: جمل' },
+  'home.unit4.subtitle': { hy: 'Պարզ նախադասություններ և բայեր', ar: 'جمل بسيطة وأفعال' },
+  'home.completed': { hy: 'Ավարտված', ar: 'مكتمل' },
+  'home.start': { hy: 'Սկսել →', ar: 'ابدأ →' },
+  'home.node.letters': { hy: 'Տառեր', ar: 'حروف' },
+  'home.node.vowels': { hy: 'Ձայնավորներ', ar: 'حركات' },
+  'home.node.words': { hy: 'Բառեր', ar: 'كلمات' },
+  'home.node.madd': { hy: 'Մադ (مد)', ar: 'المد' },
+  'home.node.tanween': { hy: 'Թանվին', ar: 'التنوين' },
+  'home.node.shadda': { hy: 'Շադդա', ar: 'الشدة' },
+  'home.node.intro': { hy: 'Ծանոթություն', ar: 'تعارف' },
+  'home.node.numbers': { hy: 'Թվեր 1–10', ar: 'أرقام 1-10' },
+  'home.node.time': { hy: 'Ժամանակ', ar: 'الوقت' },
+  'home.node.simple_sentences': { hy: 'Պարզ նախ.', ar: 'جمل بسيطة' },
+  'home.node.verbs': { hy: 'Բայեր', ar: 'أفعال' },
+
+  // Lesson Screen
+  'lesson.listen_and_learn': { hy: 'Լսել և սովորել', ar: 'استمع وتعلم' },
+  'lesson.speak': { hy: 'Խոսել', ar: 'تحدث' },
+  'lesson.quiz': { hy: 'Թեստ', ar: 'اختبار' },
+  'lesson.listen_and_read': { hy: 'Լսեք և կարդացեք', ar: 'استمع واقرأ' },
+  'lesson.pronounce_sentence': { hy: 'Արտասանեք այս նախադասությունը', ar: 'انطق هذه الجملة' },
+  'lesson.hide_transliteration': { hy: 'Թաքցնել տառադարձությունը', ar: 'إخفاء النطق' },
+  'lesson.show_transliteration': { hy: 'Ցույց տալ տառադարձությունը', ar: 'إظهار النطق' },
+  'lesson.hide_hint': { hy: 'Թաքցնել հուշումը', ar: 'إخفاء التلميح' },
+  'lesson.show_hint': { hy: 'Ցույց տալ հուշումը', ar: 'إظهار التلميح' },
+  'lesson.excellent': { hy: 'Գերազանց է! 🌟', ar: 'ممتاز! 🌟' },
+  'lesson.excellent_desc': { hy: 'Շատ լավ արտասանություն +15 XP', ar: 'نطق رائع جداً +15 XP' },
+  'lesson.good': { hy: 'Լավ է! 👍', ar: 'جيد! 👍' },
+  'lesson.good_desc': { hy: 'Կարող եք ավելի լավ +8 XP', ar: 'يمكنك أن تفعل أفضل +8 XP' },
+  'lesson.poor': { hy: 'Փորձեք նորից 💪', ar: 'حاول مرة أخرى 💪' },
+  'lesson.poor_desc': { hy: 'Արտասանությունը պարզ չէր', ar: 'النطق لم يكن واضحاً' },
+  'lesson.continue': { hy: 'Շարունակել', ar: 'متابعة' },
+  'lesson.finish': { hy: 'Ավարտել դասը', ar: 'إنهاء الدرس' },
+  'lesson.skip': { hy: 'Բաց թողնել →', ar: 'تخطي →' },
+  'lesson.quit_title': { hy: 'Իսկապե՞ս ուզում եք դուրս գալ:', ar: 'هل تريد الخروج حقاً؟' },
+  'lesson.quit_desc': { hy: 'Ձեր առաջընթացը կկորչի, եթե հիմա դուրս գաք', ar: 'ستفقد تقدمك إذا خرجت الآن' },
+  'lesson.stay': { hy: 'Մնալ', ar: 'البقاء' },
+  'lesson.quit': { hy: 'Դուրս գալ', ar: 'خروج' },
+  'lesson.out_of_lives': { hy: 'Կյանքերը սպառվեցին!', ar: 'نفدت المحاولات!' },
+  'lesson.out_of_lives_desc': { hy: 'Մի անհանգստացեք, փորձեք նորից', ar: 'لا تقلق، حاول مرة أخرى' },
+  'lesson.try_again': { hy: 'Փորձել նորից', ar: 'حاول مرة أخرى' },
+  'lesson.go_back': { hy: 'Վերադառնալ', ar: 'رجوع' },
+  'lesson.lesson_complete': { hy: 'Գերազանց է!', ar: 'ممتاز!' },
+  'lesson.lesson_complete_desc': { hy: 'Դուք ավարտեցիք դասը', ar: 'لقد أنهيت الدرس' },
+  'lesson.xp_earned': { hy: 'XP վաստակած', ar: 'XP المكتسبة' },
+  'lesson.accuracy': { hy: 'Ճշգրտություն', ar: 'الدقة' },
+  'lesson.time': { hy: 'Ժամանակ', ar: 'الوقت' },
+  'lesson.streak_bonus': { hy: 'Շարունակական բոնուս', ar: 'مكافأة متتالية' },
+  'lesson.streak_fire': { hy: 'Շարունակական! 🔥', ar: 'متتالية! 🔥' },
+
+  // Profile Screen
+  'profile.stats': { hy: 'Վիճակագրություն', ar: 'الإحصائيات' },
+  'profile.streak': { hy: 'Օր անընդմեջ', ar: 'أيام متتالية' },
+  'profile.lessons_done': { hy: 'Ավարտած դասեր', ar: 'دروس مكتملة' },
+  'profile.achievements': { hy: 'Նվաճումներ', ar: 'الإنجازات' },
+  'profile.goals': { hy: 'Նպատակներ', ar: 'الأهداف' },
+  'profile.see_all': { hy: 'Տեսնել բոլորը →', ar: 'عرض الكل →' },
+  'profile.calendar': { hy: 'Ուսումնական օրացույց', ar: 'تقويم التعلم' },
+  'profile.learned': { hy: 'Սովորել է', ar: 'تَعَلَّم' },
+  'profile.missed': { hy: 'Բաց է թողել', ar: 'فوّت' },
+  'profile.ach1.title': { hy: 'Առաջին քայլեր', ar: 'الخطوات الأولى' },
+  'profile.ach1.desc': { hy: 'Ավարտել առաջին դասը', ar: 'أكمل الدرس الأول' },
+  'profile.ach2.title': { hy: 'Կրակոտ շաբաթ', ar: 'أسبوع ناري' },
+  'profile.ach2.desc': { hy: '7 օր անընդմեջ սովորել', ar: 'تعلم 7 أيام متتالية' },
+  'profile.ach3.title': { hy: 'Բառապաշար', ar: 'المفردات' },
+  'profile.ach3.desc': { hy: 'Սովորել 100 բառ', ar: 'تعلم 100 كلمة' },
+  'profile.language': { hy: 'Լեզու', ar: 'اللغة' },
+  'profile.member_since': { hy: 'Անդամ՝ 2024-ից', ar: 'عضو منذ 2024' },
+  'profile.bronze_league': { hy: 'Բրոնզե լիգա', ar: 'الدوري البرونزي' },
+  'profile.month_name': { hy: 'Ապրիլ 2024', ar: 'أبريل 2024' },
+  'profile.days_month': { hy: 'Ամսվա օր', ar: 'يوم في الشهر' },
+  'profile.streak_label': { hy: 'Շարունակական', ar: 'متتالية' },
+  'profile.monthly_label': { hy: 'Ամսական', ar: 'شهري' },
+
+  // Chat Screen
+  'chat.title': { hy: 'AI Ուսուցիչ', ar: 'المعلم الذكي' },
+  'chat.status': { hy: 'Առցանց · Պատրաստ է օգնել', ar: 'متصل · جاهز للمساعدة' },
+  'chat.clear': { hy: 'Ջնջել զրույցը', ar: 'مسح المحادثة' },
+  'chat.settings': { hy: 'Կարգավորումներ', ar: 'الإعدادات' },
+  'chat.help': { hy: 'Օգնություն', ar: 'مساعدة' },
+  'chat.input_placeholder': { hy: 'Գրեք արաբերեն կամ հայերեն...', ar: 'اكتب بالعربية أو بالأرمنية...' },
+  'chat.hide_translation': { hy: 'Թաքցնել թարգմանությունը', ar: 'إخفاء الترجمة' },
+  'chat.show_translation': { hy: 'Տեսնել թարգմանությունը', ar: 'إظهار الترجمة' },
+  'chat.new_words': { hy: 'Նոր բառեր / كلمات جديدة', ar: 'كلمات جديدة / Նոր բառեր' },
+  'chat.quick_hello': { hy: 'Բարև', ar: 'مرحبا' },
+  'chat.quick_thanks': { hy: 'Շնորհակալություն', ar: 'شكراً لك' },
+  'chat.quick_test': { hy: 'Թեստ', ar: 'اختبار' },
+  'chat.quick_help': { hy: 'Օգնություն', ar: 'مساعدة' },
+  'chat.quick_new_words': { hy: 'Նոր բառեր', ar: 'كلمات جديدة' },
+  'chat.quick_correction': { hy: 'Ուղղում', ar: 'تصحيح' },
+
+  // About Modal
+  'about.title': { hy: 'Հավելվածի մասին', ar: 'حول التطبيق' },
+  'about.p1': {
+    hy: 'Այս հավելվածը թվային ուսուցողական հարթակ է՝ նախատեսված ոչ արաբախոսների համար։ Այն նպատակ ունի զարգացնել նրանց լեզվական հմտությունները ինտերակտիվ և ժամանակակից եղանակով՝ հիմնվելով կրթության ոլորտում նորագույն տեխնոլոգիաների վրա:',
+    ar: 'هذا التطبيق هو منصة تعليمية رقمية موجّهة للناطقين بغير اللغة العربية، يهدف إلى تطوير مهاراتهم اللغوية بطريقة تفاعلية وحديثة، اعتمادًا على أحدث التقنيات في التعليم.',
+  },
+  'about.p2': {
+    hy: 'Հավելվածը կենտրոնանում է սովորողների դժվարությունների հաղթահարման վրա, հատկապես՝ ճիշտ արտասանության, գրագրության և հաղորդակցման մեջ՝ ճշգրիտ ձայնային վարժությունների, ինտերակտիվ գործունեությունների և պարզեցված բովանդակության միջոցով:',
+    ar: 'يركّز التطبيق على معالجة الصعوبات التي يواجهها المتعلمون، خاصة في النطق الصحيح، والكتابة، والتواصل، من خلال تدريبات صوتية دقيقة، وأنشطة تفاعلية، ومحتوى مبسّط يواكب احتياجاتهم.',
+  },
+  'about.p3': {
+    hy: 'Այն ապահովում է ճկուն ուսուցման փորձ՝ դասարանից դուրս, ցանկացած ժամանակ և ցանկացած վայրում սովորելու հնարավորությամբ, ինչպես նաև խելացի հաշվետվությունների միջոցով օգտակար առաջընթացի շարունակական մշտադիտարկմամբ:',
+    ar: 'يوفّر التطبيق تجربة تعلّم مرنة خارج حدود الصف، مع إمكانية التعلم في أي وقت ومن أي مكان، إضافة إلى متابعة مستمرة لتقدّم المستخدم عبر تقارير ذكية تساعده على تحسين مستواه.',
+  },
+  'about.features_title': { hy: 'Այն նաև հիմնված է՝', ar: 'كما يعتمد على:' },
+  'about.feature1': { hy: 'Կարճ ուսուցում (Micro-learning)', ar: 'التعلم القصير (Micro-learning)' },
+  'about.feature2': { hy: 'Խթանող լեզվական խաղեր', ar: 'الألعاب اللغوية التحفيزية' },
+  'about.feature3': { hy: 'Արտասանության ավտոմատ ուղղում արհեստական բանականության միջոցով', ar: 'التصحيح الآلي للنطق باستخدام الذكاء الاصطناعي' },
+  'about.feature4': { hy: 'Գրական լեզվի կապը հաղորդակցական կիրառությունների հետ', ar: 'ربط اللغة الفصحى بالاستخدامات التواصلية' },
+  'about.goal': {
+    hy: 'Եվ նպատակ ունի արաբերենի ուսուցումը դարձնել զվարճալի, արդյունավետ և կայուն փորձ:',
+    ar: 'ويهدف إلى جعل تعلم اللغة العربية تجربة ممتعة، فعّالة، ومستدامة.',
+  },
+  'about.team_title': { hy: 'Թիմ', ar: 'فريق العمل' },
+  'about.team_desc': {
+    hy: 'Այս հավելվածը մշակվել է ոչ արաբախոսներին արաբերեն ուսուցանող մասնագիտացված հետազոտական թիմի կողմից՝',
+    ar: 'تم تطوير هذا التطبيق من طرف فريق بحثي متخصص في تعليم اللغة العربية للناطقين بغيرها:',
+  },
+  'about.team_members': {
+    hy: 'Խալիդ Մուհամմեդ Ազելմադ – Մուհամմեդ Շոուքի – Ամին Ամհան – Սոնա Տոնիկյան',
+    ar: 'خالد محمد أزلماض – محمد شوقي – أمين أمهان – صونا طونيكيان',
+  },
+};
+
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+
+export function LanguageProvider({ children }: { children: React.ReactNode }) {
+  const [language, setLanguage] = useState<Language>('hy');
+
+  // Load language from localStorage if available
+  useEffect(() => {
+    const savedLang = localStorage.getItem('app_language') as Language;
+    if (savedLang && (savedLang === 'hy' || savedLang === 'ar')) {
+      setLanguage(savedLang);
+    }
+  }, []);
+
+  const handleSetLanguage = (lang: Language) => {
+    setLanguage(lang);
+    localStorage.setItem('app_language', lang);
+  };
+
+  const t = (key: string) => {
+    return translations[key]?.[language] || key;
+  };
+
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage: handleSetLanguage, t }}>
+      <div dir={language === 'ar' ? 'rtl' : 'ltr'}>
+        {children}
+      </div>
+    </LanguageContext.Provider>
+  );
+}
+
+export function useLanguage() {
+  const context = useContext(LanguageContext);
+  if (!context) {
+    throw new Error('useLanguage must be used within a LanguageProvider');
+  }
+  return context;
+}

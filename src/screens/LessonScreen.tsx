@@ -28,6 +28,7 @@ import {
   Hash,
   type LucideIcon,
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 // ===== Types =====
 interface LessonStep {
@@ -321,6 +322,7 @@ function CompletionScreen({
   accuracy: number;
   onContinue: () => void;
 }) {
+  const { t } = useLanguage();
   const [showStars, setShowStars] = useState(0);
   const [showXP, setShowXP] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
@@ -357,9 +359,9 @@ function CompletionScreen({
         {/* Title */}
         <div>
           <h1 className="text-3xl font-black text-white mb-2 drop-shadow-md">
-            Գերազանց է!
+            {t('lesson.lesson_complete')}
           </h1>
-          <p className="text-emerald-100 text-lg">Դուք ավարտեցիք դասը</p>
+          <p className="text-emerald-100 text-lg">{t('lesson.lesson_complete_desc')}</p>
         </div>
 
         {/* Stars */}
@@ -393,7 +395,7 @@ function CompletionScreen({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-white/90">
                   <Zap size={20} className="text-yellow-300" />
-                  <span className="font-medium">XP վաստակած</span>
+                  <span className="font-medium">{t('lesson.xp_earned')}</span>
                 </div>
                 <span className="text-2xl font-black text-yellow-300">
                   +<AnimatedCounter value={xpEarned} />
@@ -403,7 +405,7 @@ function CompletionScreen({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-white/90">
                   <Target size={20} className="text-emerald-300" />
-                  <span className="font-medium">Ճշգրտություն</span>
+                  <span className="font-medium">{t('lesson.accuracy')}</span>
                 </div>
                 <span className="text-2xl font-black text-emerald-300">
                   <AnimatedCounter value={accuracy} />%
@@ -413,7 +415,7 @@ function CompletionScreen({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-white/90">
                   <Clock size={20} className="text-blue-300" />
-                  <span className="font-medium">Ժամանակ</span>
+                  <span className="font-medium">{t('lesson.time')}</span>
                 </div>
                 <span className="text-lg font-bold text-blue-300">2:34</span>
               </div>
@@ -423,7 +425,7 @@ function CompletionScreen({
               onClick={onContinue}
               className="w-full py-4 bg-white text-emerald-600 rounded-2xl font-bold text-lg hover:bg-emerald-50 transition-all active:scale-98 shadow-xl shadow-black/10"
             >
-              Շարունակել
+              {t('lesson.continue')}
             </button>
           </div>
         )}
@@ -434,6 +436,7 @@ function CompletionScreen({
 
 // ===== Main Lesson Screen =====
 export default function LessonScreen({ onBack, lessonId }: { onBack: () => void; lessonId: string | null }) {
+  const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(0);
   const [recording, setRecording] = useState(false);
   const [feedback, setFeedback] = useState<'excellent' | 'good' | 'poor' | null>(null);
@@ -598,8 +601,8 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
           <div className="w-24 h-24 bg-red-400/30 rounded-full flex items-center justify-center mx-auto">
             <Heart size={48} className="text-white" />
           </div>
-          <h1 className="text-3xl font-black text-white">Կյանքերը սպառվեցին!</h1>
-          <p className="text-red-100 text-lg">Մի անհանգստացեք, փորձեք նորից</p>
+          <h1 className="text-3xl font-black text-white">{t('lesson.out_of_lives')}</h1>
+          <p className="text-red-100 text-lg">{t('lesson.out_of_lives_desc')}</p>
           <div className="space-y-3 pt-4">
             <button
               onClick={() => {
@@ -616,10 +619,10 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
               className="w-full py-4 bg-white text-red-600 rounded-2xl font-bold text-lg"
             >
               <RotateCcw size={20} className="inline mr-2" />
-              Փորձել նորից
+              {t('lesson.try_again')}
             </button>
             <button onClick={onBack} className="w-full py-4 bg-red-600/50 text-white rounded-2xl font-bold text-lg border border-red-400/30">
-              Վերադառնալ
+              {t('lesson.go_back')}
             </button>
           </div>
         </div>
@@ -637,20 +640,20 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
               <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
                 <AlertCircle size={32} className="text-amber-500" />
               </div>
-              <h3 className="text-xl font-bold text-gray-800">Իսկապե՞ս ուզում եք դուրս գալ:</h3>
-              <p className="text-gray-500 text-sm">Ձեր առաջընթացը կկորչի, եթե հիմա դուրս գաք</p>
+              <h3 className="text-xl font-bold text-gray-800">{t('lesson.quit_title')}</h3>
+              <p className="text-gray-500 text-sm">{t('lesson.quit_desc')}</p>
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => setExitConfirm(false)}
                   className="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 transition-colors"
                 >
-                  Մնալ
+                  {t('lesson.stay')}
                 </button>
                 <button
                   onClick={onBack}
                   className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
                 >
-                  Դուրս գալ
+                  {t('lesson.quit')}
                 </button>
               </div>
             </div>
@@ -663,7 +666,7 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
           <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-2 font-bold">
             <Zap size={20} className="text-yellow-200" />
-            Streak Bonus! +5 XP
+            {t('lesson.streak_bonus')} +5 XP
             <Sparkles size={16} className="text-yellow-200" />
           </div>
         </div>
@@ -714,7 +717,7 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
           <div className="mt-2 flex justify-center">
             <div className="bg-gradient-to-r from-orange-100 to-amber-100 border border-orange-200 px-3 py-1 rounded-full flex items-center gap-1.5 animate-in fade-in duration-300">
               <Zap size={12} className="text-orange-500" />
-              <span className="text-xs font-bold text-orange-700">{streak} Streak! 🔥</span>
+              <span className="text-xs font-bold text-orange-700">{streak} {t('lesson.streak_fire')}</span>
             </div>
           </div>
         )}
@@ -734,9 +737,9 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
           {step.type === 'listen' && <Volume2 size={16} />}
           {step.type === 'speak' && <Mic size={16} />}
           {step.type === 'quiz' && <BookOpen size={16} />}
-          {step.type === 'listen' && 'Լսել և սովորել'}
-          {step.type === 'speak' && 'Խոսել'}
-          {step.type === 'quiz' && 'Թեստ'}
+          {step.type === 'listen' && t('lesson.listen_and_learn')}
+          {step.type === 'speak' && t('lesson.speak')}
+          {step.type === 'quiz' && t('lesson.quiz')}
         </div>
       </div>
 
@@ -755,8 +758,8 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
 
         {/* Instruction */}
         <h2 className="text-lg font-bold text-gray-800 text-center mt-4">
-          {step.type === 'listen' && 'Լսեք և կարդացեք'}
-          {step.type === 'speak' && 'Արտասանեք այս նախադասությունը'}
+          {step.type === 'listen' && t('lesson.listen_and_read')}
+          {step.type === 'speak' && t('lesson.pronounce_sentence')}
           {step.type === 'quiz' && step.meaning}
         </h2>
 
@@ -795,7 +798,7 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
                 className="mt-3 flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 mx-auto transition-colors"
               >
                 {showTransliteration ? <EyeOff size={14} /> : <Eye size={14} />}
-                {showTransliteration ? 'Թաքցնել տառադարձությունը' : 'Ցույց տալ տառադարձությունը'}
+                {showTransliteration ? t('lesson.hide_transliteration') : t('lesson.show_transliteration')}
               </button>
             </div>
 
@@ -838,7 +841,7 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
                   className="flex items-center gap-2 text-sm text-amber-600 hover:text-amber-700 mx-auto transition-colors"
                 >
                   <Lightbulb size={16} />
-                  {showHint ? 'Թաքցնել հուշումը' : 'Ցույց տալ հուշումը'}
+                  {showHint ? t('lesson.hide_hint') : t('lesson.show_hint')}
                 </button>
                 {showHint && (
                   <div className="mt-3 bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center animate-in fade-in slide-in-from-top-2 duration-300">
@@ -916,8 +919,8 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
                 <CheckCircle size={22} className="text-emerald-500" />
               </div>
               <div>
-                <p className="font-bold text-emerald-800">Գերազանց է! 🌟</p>
-                <p className="text-xs text-emerald-600 mt-0.5">Շատ լավ արտասանություն +15 XP</p>
+                <p className="font-bold text-emerald-800">{t('lesson.excellent')}</p>
+                <p className="text-xs text-emerald-600 mt-0.5">{t('lesson.excellent_desc')}</p>
               </div>
             </div>
           )}
@@ -927,8 +930,8 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
                 <CheckCircle size={22} className="text-amber-500" />
               </div>
               <div>
-                <p className="font-bold text-amber-800">Լավ է! 👍</p>
-                <p className="text-xs text-amber-600 mt-0.5">Կարող եք ավելի լավ +8 XP</p>
+                <p className="font-bold text-amber-800">{t('lesson.good')}</p>
+                <p className="text-xs text-amber-600 mt-0.5">{t('lesson.good_desc')}</p>
               </div>
             </div>
           )}
@@ -938,8 +941,8 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
                 <AlertCircle size={22} className="text-red-500" />
               </div>
               <div>
-                <p className="font-bold text-red-800">Փորձեք նորից 💪</p>
-                <p className="text-xs text-red-600 mt-0.5">Արտասանությունը պարզ չէր</p>
+                <p className="font-bold text-red-800">{t('lesson.poor')}</p>
+                <p className="text-xs text-red-600 mt-0.5">{t('lesson.poor_desc')}</p>
               </div>
             </div>
           )}
@@ -976,12 +979,12 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
         >
           {currentStep < steps.length - 1 ? (
             <>
-              Շարունակել
+              {t('lesson.continue')}
               <ArrowRight size={20} />
             </>
           ) : (
             <>
-              Ավարտել դասը
+              {t('lesson.finish')}
               <Trophy size={20} />
             </>
           )}
@@ -993,7 +996,7 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
             onClick={handleNext}
             className="w-full py-2 text-gray-400 text-sm font-medium hover:text-gray-600 transition-colors"
           >
-            Բաց թողնել →
+            {t('lesson.skip')}
           </button>
         )}
       </div>

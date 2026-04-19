@@ -9,6 +9,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
+import { useLanguage } from '../contexts/LanguageContext';
+
 // ===== Types =====
 interface NavItem {
   id: string;
@@ -188,28 +190,30 @@ export default function BottomNav({
   unreadMessages = 0,
   dailyStreak = 0,
 }: BottomNavProps) {
+  const { t } = useLanguage();
+
   const navItems: NavItem[] = [
     {
       id: 'home',
       icon: Home,
-      label: 'Գլխավոր',
+      label: t('nav.home'),
     },
     {
       id: 'practice',
       icon: BookOpen,
-      label: 'Վարժություն',
+      label: t('nav.practice'),
       hasNotification: true,
     },
     {
       id: 'chat',
       icon: MessageCircle,
-      label: 'Զրույց (AI)',
+      label: t('nav.chat'),
       badge: unreadMessages,
     },
     {
       id: 'profile',
       icon: User,
-      label: 'Պրոֆիլ',
+      label: t('nav.profile'),
     },
   ];
 
@@ -276,7 +280,7 @@ export default function BottomNav({
           <div className="flex justify-center mb-1 animate-slide-up">
             <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg flex items-center gap-1">
               <Zap size={10} />
-              {dailyStreak} օր անընդմեջ 🔥
+              {dailyStreak} {t('nav.streak_banner')} 🔥
             </div>
           </div>
         )}
