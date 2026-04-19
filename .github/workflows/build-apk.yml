@@ -26,9 +26,10 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '21' # تم التحديث إلى 21 لتتوافق مع متطلبات Gradle
+          java-version: '21'
 
       - name: Build APK
+        # لاحظ هنا: لا نستخدم npx قبل chmod
         run: |
           chmod +x android/gradlew
           npx cap sync
