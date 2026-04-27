@@ -53,6 +53,8 @@ const translations: Record<string, Record<Language, string>> = {
   'lesson.listen_and_learn': { hy: 'Լսել և սովորել', ar: 'استمع وتعلم' },
   'lesson.speak': { hy: 'Խոսել', ar: 'تحدث' },
   'lesson.quiz': { hy: 'Թեստ', ar: 'اختبار' },
+  'lesson.match': { hy: 'Համապատասխանեցնել', ar: 'مطابقة' },
+  'lesson.write': { hy: 'Գրել', ar: 'اكتب' },
   'lesson.listen_and_read': { hy: 'Լսեք և կարդացեք', ar: 'استمع واقرأ' },
   'lesson.pronounce_sentence': { hy: 'Արտասանեք այս նախադասությունը', ar: 'انطق هذه الجملة' },
   'lesson.hide_transliteration': { hy: 'Թաքցնել տառադարձությունը', ar: 'إخفاء النطق' },
@@ -83,6 +85,9 @@ const translations: Record<string, Record<Language, string>> = {
   'lesson.time': { hy: 'Ժամանակ', ar: 'الوقت' },
   'lesson.streak_bonus': { hy: 'Շարունակական բոնուս', ar: 'مكافأة متتالية' },
   'lesson.streak_fire': { hy: 'Շարունակական! 🔥', ar: 'متتالية! 🔥' },
+  'lesson.translate_this': { hy: 'Թարգմանեք այս նախադասությունը', ar: 'ترجم هذه الجملة' },
+  'lesson.check': { hy: 'Ստուգել', ar: 'تحقق' },
+  'lesson.correct_answer_is': { hy: 'Ճիշտ պատասխանն է՝', ar: 'الإجابة الصحيحة هي:' },
 
   // Profile Screen
   'profile.stats': { hy: 'Վիճակագրություն', ar: 'الإحصائيات' },

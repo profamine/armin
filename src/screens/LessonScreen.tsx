@@ -26,6 +26,8 @@ import {
   Award,
   Clock,
   Hash,
+  Edit3,
+  Link2,
   type LucideIcon,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -332,10 +334,32 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
   const [showStreakBonus, setShowStreakBonus] = useState(false);
   const [exitConfirm, setExitConfirm] = useState(false);
 
+  // Match State
+  const [matchSelected, setMatchSelected] = useState<{ arabic: string | null; armenian: string | null }>({ arabic: null, armenian: null });
+  const [matchedPairs, setMatchedPairs] = useState<string[]>([]);
+  // Write State
+  const [writeInput, setWriteInput] = useState('');
+  const [writeAnswered, setWriteAnswered] = useState(false);
+  const [writeCorrect, setWriteCorrect] = useState(false);
+
+  // We should shuffle pairs whenever step changes.
+  const [shuffledArabics, setShuffledArabics] = useState<string[]>([]);
+  const [shuffledArmenians, setShuffledArmenians] = useState<string[]>([]);
+
   const lesson = lessonId && lessonsData[lessonId] ? lessonsData[lessonId] : lessonsData['u1'];
   const steps = lesson.steps;
   const step = steps[currentStep];
   const progress = ((currentStep + 1) / steps.length) * 100;
+
+  // Setup match step arrays
+  useEffect(() => {
+    if (step.type === 'match' && step.pairs) {
+      const arabics = step.pairs.map((p) => p.arabic).sort(() => Math.random() - 0.5);
+      const armenians = step.pairs.map((p) => p.armenian).sort(() => Math.random() - 0.5);
+      setShuffledArabics(arabics);
+      setShuffledArmenians(armenians);
+    }
+  }, [step]);
 
   const handlePlayAudio = () => {
     if (isPlaying) return;
@@ -434,6 +458,62 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
     }
   };
 
+  const handleMatchSelect = (type: 'arabic' | 'armenian', value: string) => {
+    if (matchedPairs.includes(value)) return;
+
+    setMatchSelected((prev) => {
+      const next = { ...prev, [type]: value };
+
+      if (next.arabic && next.armenian) {
+        // Evaluate the pair
+        const isPair = step.pairs?.some((p) => p.arabic === next.arabic && p.armenian === next.armenian);
+        if (isPair) {
+          setXp((prevXp) => prevXp + 5);
+          playSound('correct');
+          setMatchedPairs((mp) => [...mp, next.arabic!, next.armenian!]);
+          // Check if it's the last pair
+          if (step.pairs && matchedPairs.length + 2 >= step.pairs.length * 2) {
+            setStreak((prevStreak) => prevStreak + 1);
+            setCorrectAnswers((prevCA) => prevCA + 1);
+            setTotalAnswered((prevTA) => prevTA + 1);
+          }
+        } else {
+          setLives((prevLives) => Math.max(0, prevLives - 1));
+          setStreak(0);
+          playSound('wrong');
+          setShakeWrong(true);
+          setTimeout(() => setShakeWrong(false), 500);
+        }
+        return { arabic: null, armenian: null }; // Reset selection
+      }
+      playSound('click');
+      return next;
+    });
+  };
+
+  const handleWriteSubmit = () => {
+    if (writeAnswered) return;
+    setWriteAnswered(true);
+    setTotalAnswered((prev) => prev + 1);
+
+    // Normalize comparison slightly, maybe ignore hamzas or extra spaces in real app, here exact match for simplicity
+    const isCorrect = writeInput.trim() === step.arabic.trim();
+    setWriteCorrect(isCorrect);
+    
+    if (isCorrect) {
+      setXp((prev) => prev + 15);
+      setStreak((prev) => prev + 1);
+      setCorrectAnswers((prev) => prev + 1);
+      playSound('correct');
+    } else {
+      setLives((prev) => Math.max(0, prev - 1));
+      setStreak(0);
+      playSound('wrong');
+      setShakeWrong(true);
+      setTimeout(() => setShakeWrong(false), 500);
+    }
+  };
+
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep((prev) => prev + 1);
@@ -442,6 +522,11 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
       setQuizAnswered(false);
       setShowHint(false);
       setRecording(false);
+      setMatchSelected({ arabic: null, armenian: null });
+      setMatchedPairs([]);
+      setWriteInput('');
+      setWriteAnswered(false);
+      setWriteCorrect(false);
       playSound('click');
     } else {
       setShowCompletion(true);
@@ -460,7 +545,9 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
     step.type === 'listen' ||
     feedback === 'excellent' ||
     feedback === 'good' ||
-    (step.type === 'quiz' && quizAnswered && step.options![selectedAnswer!]?.correct);
+    (step.type === 'quiz' && quizAnswered && step.options![selectedAnswer!]?.correct) ||
+    (step.type === 'match' && matchedPairs.length === (step.pairs?.length || 0) * 2) ||
+    (step.type === 'write' && writeAnswered && writeCorrect);
 
   if (showCompletion) {
     return (
@@ -493,6 +580,11 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
                 setFeedback(null);
                 setSelectedAnswer(null);
                 setQuizAnswered(false);
+                setMatchSelected({ arabic: null, armenian: null });
+                setMatchedPairs([]);
+                setWriteInput('');
+                setWriteAnswered(false);
+                setWriteCorrect(false);
               }}
               className="w-full py-4 bg-white text-red-600 rounded-2xl font-bold text-lg"
             >
@@ -615,9 +707,13 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
           {step.type === 'listen' && <Volume2 size={16} />}
           {step.type === 'speak' && <Mic size={16} />}
           {step.type === 'quiz' && <BookOpen size={16} />}
+          {step.type === 'match' && <Link2 size={16} />}
+          {step.type === 'write' && <Edit3 size={16} />}
           {step.type === 'listen' && t('lesson.listen_and_learn')}
           {step.type === 'speak' && t('lesson.speak')}
           {step.type === 'quiz' && t('lesson.quiz')}
+          {step.type === 'match' && t('lesson.match')}
+          {step.type === 'write' && t('lesson.write')}
         </div>
       </div>
 
@@ -639,6 +735,8 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
           {step.type === 'listen' && t('lesson.listen_and_read')}
           {step.type === 'speak' && t('lesson.pronounce_sentence')}
           {step.type === 'quiz' && step.meaning}
+          {step.type === 'match' && step.meaning}
+          {step.type === 'write' && step.meaning}
         </h2>
 
         {/* Arabic Text Display */}
@@ -786,6 +884,131 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* Match Content */}
+        {step.type === 'match' && step.pairs && (
+          <div className="flex-1 flex flex-col justify-center py-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-3 flex flex-col">
+                {shuffledArabics.map((ar, idx) => {
+                  const isMatched = matchedPairs.includes(ar);
+                  const isSelected = matchSelected.arabic === ar;
+                  return (
+                    <button
+                      key={`ar-${idx}`}
+                      disabled={isMatched}
+                      onClick={() => handleMatchSelect('arabic', ar)}
+                      className={`h-24 p-4 rounded-2xl border-2 text-center font-bold text-2xl font-arabic transition-all flex items-center justify-center ${
+                        isMatched
+                          ? 'bg-gray-100 border-gray-200 text-gray-300 opacity-50'
+                          : isSelected
+                          ? 'bg-blue-50 border-blue-400 text-blue-700 w-[105%] z-10 shadow-md'
+                          : 'bg-white border-gray-200 text-gray-800 hover:border-blue-300 hover:bg-slate-50 shadow-sm'
+                      }`}
+                      dir="rtl"
+                    >
+                      {ar}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="space-y-3 flex flex-col">
+                {shuffledArmenians.map((am, idx) => {
+                  const isMatched = matchedPairs.includes(am);
+                  const isSelected = matchSelected.armenian === am;
+                  return (
+                    <button
+                      key={`am-${idx}`}
+                      disabled={isMatched}
+                      onClick={() => handleMatchSelect('armenian', am)}
+                      className={`h-24 p-4 rounded-2xl border-2 text-center font-medium text-base transition-all flex items-center justify-center ${
+                        isMatched
+                          ? 'bg-gray-100 border-gray-200 text-gray-300 opacity-50'
+                          : isSelected
+                          ? 'bg-blue-50 border-blue-400 text-blue-700 w-[105%] -ml-[-5%] z-10 shadow-md'
+                          : 'bg-white border-gray-200 text-gray-800 hover:border-blue-300 hover:bg-slate-50 shadow-sm'
+                      }`}
+                    >
+                      {am}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            
+            {/* Hint */}
+            {step.hint && (
+              <div className="mt-8 text-center text-sm font-medium text-gray-400">
+                {step.hint}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Write Content */}
+        {step.type === 'write' && (
+          <div className="flex-1 flex flex-col justify-center py-6 space-y-8">
+            <div className="text-center">
+              <p className="text-gray-500 mb-2">{t('lesson.translate_this')}</p>
+              <h3 className="text-2xl font-bold text-gray-800">{step.armenian}</h3>
+            </div>
+
+            <div className="space-y-4">
+              <textarea
+                dir="rtl"
+                disabled={writeAnswered}
+                value={writeInput}
+                onChange={(e) => setWriteInput(e.target.value)}
+                placeholder="Գրեք արաբերեն այստեղ..."
+                className={`w-full p-4 rounded-2xl border-2 font-arabic text-3xl transition-all min-h-[120px] focus:outline-none focus:ring-4 ${
+                  writeAnswered
+                    ? writeCorrect
+                      ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-emerald-200'
+                      : 'border-red-500 bg-red-50 text-red-800 ring-red-200'
+                    : 'border-gray-300 bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-blue-100 shadow-inner'
+                }`}
+              />
+
+              {!writeAnswered && (
+                <button
+                  onClick={handleWriteSubmit}
+                  disabled={!writeInput.trim()}
+                  className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg disabled:opacity-50 disabled:bg-gray-400 hover:bg-blue-700 transition"
+                >
+                  {t('lesson.check')}
+                </button>
+              )}
+              
+              {writeAnswered && !writeCorrect && (
+                <div className="bg-red-50 p-4 rounded-2xl border border-red-200 text-center">
+                  <p className="text-red-800 font-bold mb-1">{t('lesson.correct_answer_is')}</p>
+                  <p className="text-3xl font-arabic text-red-600" dir="rtl">{step.arabic}</p>
+                </div>
+              )}
+            </div>
+            
+            {/* Hint */}
+            {step.hint && (
+              <div className="w-full mt-4">
+                <button
+                  onClick={() => setShowHint(!showHint)}
+                  className="flex items-center gap-2 text-sm text-amber-600 hover:text-amber-700 mx-auto transition-colors"
+                >
+                  <Lightbulb size={16} />
+                  {showHint ? t('lesson.hide_hint') : t('lesson.show_hint')}
+                </button>
+                {showHint && (
+                  <div className="mt-3 bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center animate-in fade-in slide-in-from-top-2 duration-300">
+                    <p className="text-amber-800 text-sm font-medium flex items-center justify-center gap-2">
+                      <Lightbulb size={16} className="text-amber-500 flex-shrink-0" />
+                      {step.hint}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
