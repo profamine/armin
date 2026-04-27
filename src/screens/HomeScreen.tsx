@@ -151,53 +151,85 @@ export default function HomeScreen({
         <UnitSection
           title={t('home.unit1.title')}
           subtitle={t('home.unit1.subtitle')}
-          progress="3/3"
+          progress="1/1"
           color="green"
         >
-          <LessonNode title={t('home.node.letters')} status="completed" onClick={() => {}} />
-          <LessonNode title={t('home.node.vowels')} status="completed" onClick={() => {}} isRight />
-          <LessonNode title={t('home.node.words')} status="completed" onClick={() => {}} />
+          <LessonNode title={t('home.node.u1')} status="completed" onClick={() => onStartLesson('u1')} color="green" />
         </UnitSection>
 
         {/* ── Unit 2 ── */}
         <UnitSection
           title={t('home.unit2.title')}
           subtitle={t('home.unit2.subtitle')}
-          progress="1/3"
+          progress="1/1"
           color="blue"
         >
-          <LessonNode title={t('home.node.madd')} status="completed" onClick={() => {}} color="blue" />
-          <LessonNode
-            title={t('home.node.tanween')}
-            status="current"
-            onClick={() => onStartLesson('tanween')}
-            isRight
-            color="blue"
-          />
-          <LessonNode title={t('home.node.shadda')} status="locked" onClick={() => {}} color="blue" />
+          <LessonNode title={t('home.node.u2')} status="completed" onClick={() => onStartLesson('u2')} isRight color="blue" />
         </UnitSection>
 
         {/* ── Unit 3 ── */}
         <UnitSection
           title={t('home.unit3.title')}
           subtitle={t('home.unit3.subtitle')}
-          progress="0/3"
+          progress="0/1"
           color="purple"
         >
-          <LessonNode title={t('home.node.intro')} status="locked" onClick={() => {}} color="purple" />
-          <LessonNode title={t('home.node.numbers')} status="locked" onClick={() => {}} isRight color="purple" />
-          <LessonNode title={t('home.node.time')} status="locked" onClick={() => {}} color="purple" />
+          <LessonNode
+            title={t('home.node.u3')}
+            status="current"
+            onClick={() => onStartLesson('u3')}
+            color="purple"
+          />
         </UnitSection>
 
         {/* ── Unit 4 ── */}
         <UnitSection
           title={t('home.unit4.title')}
           subtitle={t('home.unit4.subtitle')}
-          progress="0/2"
+          progress="0/1"
           color="orange"
         >
-          <LessonNode title={t('home.node.simple_sentences')} status="locked" onClick={() => {}} color="orange" />
-          <LessonNode title={t('home.node.verbs')} status="locked" onClick={() => {}} isRight color="orange" />
+          <LessonNode title={t('home.node.u4')} status="locked" onClick={() => onStartLesson('u4')} isRight color="orange" />
+        </UnitSection>
+
+        {/* ── Unit 5 ── */}
+        <UnitSection
+          title={t('home.unit5.title')}
+          subtitle={t('home.unit5.subtitle')}
+          progress="0/1"
+          color="green"
+        >
+          <LessonNode title={t('home.node.u5')} status="locked" onClick={() => onStartLesson('u5')} color="green" />
+        </UnitSection>
+
+        {/* ── Unit 6 ── */}
+        <UnitSection
+          title={t('home.unit6.title')}
+          subtitle={t('home.unit6.subtitle')}
+          progress="0/1"
+          color="blue"
+        >
+          <LessonNode title={t('home.node.u6')} status="locked" onClick={() => onStartLesson('u6')} isRight color="blue" />
+        </UnitSection>
+
+        {/* ── Unit 7 ── */}
+        <UnitSection
+          title={t('home.unit7.title')}
+          subtitle={t('home.unit7.subtitle')}
+          progress="0/1"
+          color="purple"
+        >
+          <LessonNode title={t('home.node.u7')} status="locked" onClick={() => onStartLesson('u7')} color="purple" />
+        </UnitSection>
+
+        {/* ── Unit 8 ── */}
+        <UnitSection
+          title={t('home.unit8.title')}
+          subtitle={t('home.unit8.subtitle')}
+          progress="0/1"
+          color="orange"
+        >
+          <LessonNode title={t('home.node.u8')} status="locked" onClick={() => onStartLesson('u8')} isRight color="orange" />
         </UnitSection>
       </div>
     </div>

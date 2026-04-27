@@ -42,7 +42,7 @@ function AppContent() {
   const showNav = currentScreen !== 'lesson';
 
   return (
-    <div className="flex flex-col h-screen w-full max-w-md mx-auto bg-gray-50 shadow-2xl overflow-hidden relative sm:border-x sm:border-gray-200">
+    <div className="flex flex-col h-[100dvh] w-full max-w-md mx-auto bg-gray-50 shadow-2xl overflow-hidden relative sm:border-x sm:border-gray-200">
       {currentScreen === 'home'    && <HomeScreen onStartLesson={navigateToLesson} />}
       {currentScreen === 'lesson'  && <LessonScreen onBack={goBack} lessonId={activeLesson} />}
       {currentScreen === 'profile' && <ProfileScreen />}

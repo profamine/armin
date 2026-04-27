@@ -29,130 +29,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-
-// ===== Types =====
-interface LessonStep {
-  id: number;
-  type: 'listen' | 'speak' | 'quiz' | 'match' | 'write';
-  arabic: string;
-  armenian: string;
-  transliteration: string;
-  hint?: string;
-  hintIcon?: string;
-  highlightIndex?: number;
-  highlightChar?: string;
-  audio?: string;
-  options?: QuizOption[];
-  meaning?: string;
-}
-
-interface QuizOption {
-  text: string;
-  correct: boolean;
-}
-
-interface LessonData {
-  id: string;
-  title: string;
-  titleAr: string;
-  steps: LessonStep[];
-  xpReward: number;
-}
-
-// ===== Lesson Data =====
-const lessonData: LessonData = {
-  id: 'greetings-1',
-  title: 'Ողջույններ - التحيات',
-  titleAr: 'التحيات الأساسية',
-  xpReward: 50,
-  steps: [
-    {
-      id: 1,
-      type: 'listen',
-      arabic: 'السَّلَامُ عَلَيْكُم',
-      armenian: 'Խաղաղություն ձեզ',
-      transliteration: 'As-salāmu ʿalaykum',
-      hint: 'Ուշադրություն դարձրեք ع տառին',
-      highlightChar: 'عَـ',
-      meaning: 'Խաղաղություն ձեզ (peace be upon you)',
-    },
-    {
-      id: 2,
-      type: 'speak',
-      arabic: 'السَّلَامُ عَلَيْكُم',
-      armenian: 'Խաղաղություն ձեզ',
-      transliteration: 'As-salāmu ʿalaykum',
-      hint: 'Արտասանեք հստակ և բարձրաձայն',
-      meaning: 'Խաղաղություն ձեզ',
-    },
-    {
-      id: 3,
-      type: 'quiz',
-      arabic: 'السَّلَامُ عَلَيْكُم',
-      armenian: 'Խաղաղություն ձեզ',
-      transliteration: 'As-salāmu ʿalaykum',
-      meaning: 'Ի՞նչ է նշանակում «السَّلَامُ عَلَيْكُم»:',
-      options: [
-        { text: 'Բարի լույս', correct: false },
-        { text: 'Խաղաղություն ձեզ', correct: true },
-        { text: 'Շնորհակալություն', correct: false },
-        { text: 'Ցտեսություն', correct: false },
-      ],
-    },
-    {
-      id: 4,
-      type: 'listen',
-      arabic: 'وَعَلَيْكُمُ السَّلَام',
-      armenian: 'Եվ ձեզ խաղաղություն',
-      transliteration: 'Wa ʿalaykumu s-salām',
-      hint: 'Սկսվում է «و» (և) տառով',
-      highlightChar: 'وَ',
-      meaning: 'Եվ ձեզ խաղաղություն (and upon you peace)',
-    },
-    {
-      id: 5,
-      type: 'speak',
-      arabic: 'وَعَلَيْكُمُ السَّلَام',
-      armenian: 'Եվ ձեզ խաղաղություն',
-      transliteration: 'Wa ʿalaykumu s-salām',
-      hint: 'Պատասխանեք ողջույնին',
-      meaning: 'Եվ ձեզ խաղաղություն',
-    },
-    {
-      id: 6,
-      type: 'quiz',
-      arabic: 'مَرْحَبًا',
-      armenian: 'Բարև',
-      transliteration: 'Marḥaban',
-      meaning: 'Ի՞նչ է նշանակում «مَرْحَبًا»:',
-      options: [
-        { text: 'Բարի գիշեր', correct: false },
-        { text: 'Ինչպե՞ս ես', correct: false },
-        { text: 'Բարև', correct: true },
-        { text: 'Խնդրեմ', correct: false },
-      ],
-    },
-    {
-      id: 7,
-      type: 'listen',
-      arabic: 'كَيْفَ حَالُك',
-      armenian: 'Ինչպե՞ս ես',
-      transliteration: 'Kayfa ḥāluk',
-      hint: 'ح տառը արտասանվում է կոկորդից',
-      highlightChar: 'حَـ',
-      meaning: 'Ինչպե՞ս ես (How are you?)',
-    },
-    {
-      id: 8,
-      type: 'speak',
-      arabic: 'كَيْفَ حَالُك',
-      armenian: 'Ինչպե՞ս ես',
-      transliteration: 'Kayfa ḥāluk',
-      hint: 'Հարցրեք «ك» և «ف» տառերով',
-      meaning: 'Ինչպե՞ս ես',
-    },
-  ],
-};
+import { lessonsData, type LessonData, type LessonStep, type QuizOption } from '../data/lessons';
 
 // ===== Sound Effects (simulated) =====
 const playSound = (type: 'correct' | 'wrong' | 'complete' | 'click' | 'speak') => {
@@ -455,7 +332,8 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
   const [showStreakBonus, setShowStreakBonus] = useState(false);
   const [exitConfirm, setExitConfirm] = useState(false);
 
-  const steps = lessonData.steps;
+  const lesson = lessonId && lessonsData[lessonId] ? lessonsData[lessonId] : lessonsData['u1'];
+  const steps = lesson.steps;
   const step = steps[currentStep];
   const progress = ((currentStep + 1) / steps.length) * 100;
 
@@ -631,7 +509,7 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-b from-white to-gray-50 max-w-lg mx-auto relative overflow-hidden">
+    <div className="flex-1 flex flex-col bg-gradient-to-b from-white to-gray-50 relative overflow-hidden">
       {/* Exit Confirmation Modal */}
       {exitConfirm && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-6 animate-in fade-in duration-200">

@@ -20,27 +20,34 @@ const translations: Record<string, Record<Language, string>> = {
   'home.title': { hy: 'Արաբերեն', ar: 'العربية' },
   'home.subtitle': { hy: 'Մակարդակ A1 · 600 բառ', ar: 'المستوى A1 · 600 كلمة' },
   'home.lessons_completed': { hy: '4 / 14 դաս ավարտված', ar: '4 / 14 درس مكتمل' },
-  'home.unit1.title': { hy: 'Բաժին 1: Հիմքեր', ar: 'الوحدة 1: الأساسيات' },
-  'home.unit1.subtitle': { hy: 'Տառեր և ձայնավորներ', ar: 'الحروف والحركات' },
-  'home.unit2.title': { hy: 'Բաժին 2: Ընդլայնված հիմքեր', ar: 'الوحدة 2: أساسيات متقدمة' },
-  'home.unit2.subtitle': { hy: 'Մադ, Թանվին, Շադդա', ar: 'المد، التنوين، الشدة' },
-  'home.unit3.title': { hy: 'Բաժին 3: Ամենօրյա բառեր', ar: 'الوحدة 3: كلمات يومية' },
-  'home.unit3.subtitle': { hy: 'Ծանոթություն, Թվեր, Ժամանակ', ar: 'التعارف، الأرقام، الوقت' },
-  'home.unit4.title': { hy: 'Բաժին 4: Նախադասություններ', ar: 'الوحدة 4: جمل' },
-  'home.unit4.subtitle': { hy: 'Պարզ նախադասություններ և բայեր', ar: 'جمل بسيطة وأفعال' },
+  'home.unit1.title': { hy: 'Միավոր 1: Տառեր', ar: 'الوحدة 1: الحروف' },
+  'home.unit1.subtitle': { hy: 'Տառեր և հիմնական շարժումներ', ar: 'الحروف والحركات الأساسية' },
+  'home.unit2.title': { hy: 'Միավոր 2: Երկարացումներ', ar: 'الوحدة 2: المدود' },
+  'home.unit2.subtitle': { hy: 'Երկարացումներ և կարճ բառեր', ar: 'المدود وكلمات قصيرة' },
+  'home.unit3.title': { hy: 'Միավոր 3: Թանուին', ar: 'الوحدة 3: التنوين' },
+  'home.unit3.subtitle': { hy: 'Թանուին ընդհանուր', ar: 'التنوين' },
+  'home.unit4.title': { hy: 'Միավոր 4: Իրաբ', ar: 'الوحدة 4: الحركات الإعرابية' },
+  'home.unit4.subtitle': { hy: 'Հիմնական «իրաբ»', ar: 'الحركات الإعرابية الأولى' },
+  'home.unit5.title': { hy: 'Միավոր 5: Թվեր', ar: 'الوحدة 5: الأعداد' },
+  'home.unit5.subtitle': { hy: 'Թվեր 1–10', ar: 'الأعداد من 1 إلى 10' },
+  'home.unit6.title': { hy: 'Միավոր 6: Բայեր', ar: 'الوحدة 6: أفعال وضمائر' },
+  'home.unit6.subtitle': { hy: 'Հիմնական բայեր և դերանուններ', ar: 'أفعال أساسية وضمائر' },
+  'home.unit7.title': { hy: 'Միավոր 7: Ծանոթություն', ar: 'الوحدة 7: التعارف' },
+  'home.unit7.subtitle': { hy: 'Ծանոթություն և պարզ նախադասություններ', ar: 'التعارف وجمل بسيطة' },
+  'home.unit8.title': { hy: 'Միավոր 8: Ժամանակ', ar: 'الوحدة 8: الوقت' },
+  'home.unit8.subtitle': { hy: 'Ժամանակ, օրեր և ամիսներ', ar: 'الوقت وأيام الأسبوع وشهور السنة' },
+
   'home.completed': { hy: 'Ավարտված', ar: 'مكتمل' },
   'home.start': { hy: 'Սկսել →', ar: 'ابدأ →' },
-  'home.node.letters': { hy: 'Տառեր', ar: 'حروف' },
-  'home.node.vowels': { hy: 'Ձայնավորներ', ar: 'حركات' },
-  'home.node.words': { hy: 'Բառեր', ar: 'كلمات' },
-  'home.node.madd': { hy: 'Մադ (مد)', ar: 'المد' },
-  'home.node.tanween': { hy: 'Թանվին', ar: 'التنوين' },
-  'home.node.shadda': { hy: 'Շադդա', ar: 'الشدة' },
-  'home.node.intro': { hy: 'Ծանոթություն', ar: 'تعارف' },
-  'home.node.numbers': { hy: 'Թվեր 1–10', ar: 'أرقام 1-10' },
-  'home.node.time': { hy: 'Ժամանակ', ar: 'الوقت' },
-  'home.node.simple_sentences': { hy: 'Պարզ նախ.', ar: 'جمل بسيطة' },
-  'home.node.verbs': { hy: 'Բայեր', ar: 'أفعال' },
+
+  'home.node.u1': { hy: 'Տառեր', ar: 'الحروف' },
+  'home.node.u2': { hy: 'Երկարացումներ', ar: 'المدود' },
+  'home.node.u3': { hy: 'Թանուին', ar: 'التنوين' },
+  'home.node.u4': { hy: 'Իրաբ', ar: 'الإعراب' },
+  'home.node.u5': { hy: 'Թվեր', ar: 'الأعداد' },
+  'home.node.u6': { hy: 'Բայեր', ar: 'أفعال' },
+  'home.node.u7': { hy: 'Ծանոթություն', ar: 'تعارف' },
+  'home.node.u8': { hy: 'Ժամանակ', ar: 'الوقت' },
 
   // Lesson Screen
   'lesson.listen_and_learn': { hy: 'Լսել և սովորել', ar: 'استمع وتعلم' },
@@ -176,7 +183,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage: handleSetLanguage, t }}>
-      <div dir={language === 'ar' ? 'rtl' : 'ltr'}>
+      <div dir={language === 'ar' ? 'rtl' : 'ltr'} className="w-full h-full">
         {children}
       </div>
     </LanguageContext.Provider>

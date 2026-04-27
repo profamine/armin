@@ -228,6 +228,7 @@ function MessageBubble({
   onCopy,
   onSpeak,
 }: {
+  key?: React.Key;
   message: Message;
   onRate: (id: number, rating: 'up' | 'down') => void;
   onCopy: (text: string) => void;
@@ -494,7 +495,7 @@ export default function ChatScreen() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-b from-gray-50 to-gray-100 max-w-lg mx-auto relative overflow-hidden">
+    <div className="flex-1 flex flex-col bg-gradient-to-b from-gray-50 to-gray-100 relative overflow-hidden pb-24">
       {/* Header */}
       <div className="bg-white/95 backdrop-blur-md px-4 py-3 border-b border-gray-200/50 flex items-center justify-between shadow-sm sticky top-0 z-30">
         <div className="flex items-center gap-3">

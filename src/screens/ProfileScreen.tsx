@@ -56,7 +56,7 @@ export default function ProfileScreen() {
           {/* Avatar */}
           <div className="relative">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-md">
-              Ա
+              {language === 'hy' ? 'Ա' : 'أ'}
             </div>
             {/* Level badge on avatar */}
             <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white">

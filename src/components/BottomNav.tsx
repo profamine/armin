@@ -93,6 +93,7 @@ function NavButton({
   isActive,
   onClick,
 }: {
+  key?: React.Key;
   item: NavItem;
   isActive: boolean;
   onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
@@ -271,7 +272,7 @@ export default function BottomNav({
       `}</style>
 
       <nav
-        className="fixed bottom-0 left-0 right-0 z-40 max-w-lg mx-auto"
+        className="fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto"
         role="navigation"
         aria-label="Main navigation"
       >
