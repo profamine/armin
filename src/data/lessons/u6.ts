@@ -18,19 +18,18 @@ export const u6: LessonData = {
     {
       id: 2,
       type: "listen",
-      arabic: "هُوَ تَدْرُسُ", // Note: The old text was probably wrong, it should be هُوَ يَدْرُسُ for 'he studies'. Wait.
+      arabic: "هُوَ يَدْرُسُ",
       armenian: "Նա (արական) սովորում է",
       transliteration: "huwa yadrusu",
       hint: "هُوَ (նա - ար.) պահանջում է ي... բայի սկզբում",
       hintIcon: "👨‍🎓",
     },
-    // Fix: "هُوَ تَدْرُسُ" -> "هُوَ يَدْرُسُ"
     {
       id: 3,
       type: "listen",
       arabic: "أَنْتَ تَكْتُبُ",
       armenian: "Դու (արական) գրում ես",
-      transliteration: "anta taktub",
+      transliteration: "anta taktubu",
       hint: "أَنْتَ պահանջում է تَ... բայի սկզբում",
       hintIcon: "✍️",
     },
@@ -91,11 +90,12 @@ export const u6: LessonData = {
       arabic: "الضمائر",
       armenian: "Դերանունների կապ",
       transliteration: "",
-      meaning: "Կապե՛ք դերանունը համապատասխան բայի հետ:",
+      meaning: "Կապե՛ք դերանունը բայի ճիշտ ձևին հետ (ներկա):",
       pairs: [
-        pair("أَنَا (ես)", "أَدْرُسُ"),
-        pair("هُوَ (նա ար.)", "يَدْرُسُ"),
-        pair("هِيَ (նա իգ.)", "تَدْرُسُ"),
+        pair("أَنَا", "أَدْرُسُ"),
+        pair("هُوَ", "يَدْرُسُ"),
+        pair("هِيَ", "تَدْرُسُ"),
+        pair("أَنْتَ", "تَكْتُبُ"),
       ],
     },
     {

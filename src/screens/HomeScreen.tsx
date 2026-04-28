@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Star, Lock, Check, HelpCircle } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import AboutModal from '../components/AboutModal';
+import { lessonsData } from '../data/lessons';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -96,11 +97,28 @@ const COLOR_MAP: Record<
 
 export default function HomeScreen({
   onStartLesson,
+  completedUnits,
+  totalXP,
+  streak,
 }: {
   onStartLesson: (id: string) => void;
+  completedUnits: string[];
+  totalXP: number;
+  streak: number;
 }) {
   const { t } = useLanguage();
   const [showAboutModal, setShowAboutModal] = useState(false);
+
+  const getStatus = (id: string): NodeStatus => {
+    const ids = ['u1','u2','u3','u4','u5','u6','u7','u8',
+                 'u9','u10','u11','u12','u13','u14','u15','u16',
+                 'u17','u18','u19','u20'];
+    const idx = ids.indexOf(id);
+    if (completedUnits.includes(id)) return 'completed';
+    const prev = ids[idx - 1];
+    if (idx === 0 || completedUnits.includes(prev)) return 'current';
+    return 'locked';
+  };
 
   return (
     <div className="flex-1 overflow-y-auto pb-24 bg-gray-50 relative">
@@ -126,12 +144,12 @@ export default function HomeScreen({
             {/* XP pill */}
             <div className="bg-white/15 px-3 py-1.5 rounded-full flex items-center gap-1.5 text-sm font-semibold">
               <span className="text-yellow-300">⚡</span>
-              <span>240 XP</span>
+              <span>{totalXP} XP</span>
             </div>
             {/* Streak pill */}
             <div className="bg-white/15 px-3 py-1.5 rounded-full flex items-center gap-1.5 text-sm font-semibold">
               <span className="text-orange-300">🔥</span>
-              <span>14</span>
+              <span>{streak}</span>
             </div>
           </div>
         </div>
@@ -140,10 +158,12 @@ export default function HomeScreen({
         <div className="mt-4 bg-white/20 rounded-full h-2">
           <div
             className="bg-white rounded-full h-2 transition-all duration-500"
-            style={{ width: '28%' }}
+            style={{ width: `${(completedUnits.length / 20) * 100}%` }}
           />
         </div>
-        <p className="text-green-200 text-xs mt-1.5">{t('home.lessons_completed')}</p>
+        <p className="text-green-200 text-xs mt-1.5">
+          {completedUnits.length} / 20 {t('home.lessons_completed')}
+        </p>
       </div>
 
       <div className="p-5 space-y-8">
@@ -151,32 +171,32 @@ export default function HomeScreen({
         <UnitSection
           title={t('home.unit1.title')}
           subtitle={t('home.unit1.subtitle')}
-          progress="1/1"
+          progress={completedUnits.includes('u1') ? '1/1' : '0/1'}
           color="green"
         >
-          <LessonNode title={t('home.node.u1')} status="completed" onClick={() => onStartLesson('u1')} color="green" />
+          <LessonNode title={t('home.node.u1')} status={getStatus('u1')} onClick={() => onStartLesson('u1')} color="green" />
         </UnitSection>
 
         {/* ── Unit 2 ── */}
         <UnitSection
           title={t('home.unit2.title')}
           subtitle={t('home.unit2.subtitle')}
-          progress="1/1"
+          progress={completedUnits.includes('u2') ? '1/1' : '0/1'}
           color="blue"
         >
-          <LessonNode title={t('home.node.u2')} status="completed" onClick={() => onStartLesson('u2')} isRight color="blue" />
+          <LessonNode title={t('home.node.u2')} status={getStatus('u2')} onClick={() => onStartLesson('u2')} isRight color="blue" />
         </UnitSection>
 
         {/* ── Unit 3 ── */}
         <UnitSection
           title={t('home.unit3.title')}
           subtitle={t('home.unit3.subtitle')}
-          progress="0/1"
+          progress={completedUnits.includes('u3') ? '1/1' : '0/1'}
           color="purple"
         >
           <LessonNode
             title={t('home.node.u3')}
-            status="current"
+            status={getStatus('u3')}
             onClick={() => onStartLesson('u3')}
             color="purple"
           />
@@ -186,90 +206,170 @@ export default function HomeScreen({
         <UnitSection
           title={t('home.unit4.title')}
           subtitle={t('home.unit4.subtitle')}
-          progress="0/1"
+          progress={completedUnits.includes('u4') ? '1/1' : '0/1'}
           color="orange"
         >
-          <LessonNode title={t('home.node.u4')} status="locked" onClick={() => onStartLesson('u4')} isRight color="orange" />
+          <LessonNode title={t('home.node.u4')} status={getStatus('u4')} onClick={() => onStartLesson('u4')} isRight color="orange" />
         </UnitSection>
 
         {/* ── Unit 5 ── */}
         <UnitSection
           title={t('home.unit5.title')}
           subtitle={t('home.unit5.subtitle')}
-          progress="0/1"
+          progress={completedUnits.includes('u5') ? '1/1' : '0/1'}
           color="green"
         >
-          <LessonNode title={t('home.node.u5')} status="locked" onClick={() => onStartLesson('u5')} color="green" />
+          <LessonNode title={t('home.node.u5')} status={getStatus('u5')} onClick={() => onStartLesson('u5')} color="green" />
         </UnitSection>
 
         {/* ── Unit 6 ── */}
         <UnitSection
           title={t('home.unit6.title')}
           subtitle={t('home.unit6.subtitle')}
-          progress="0/1"
+          progress={completedUnits.includes('u6') ? '1/1' : '0/1'}
           color="blue"
         >
-          <LessonNode title={t('home.node.u6')} status="locked" onClick={() => onStartLesson('u6')} isRight color="blue" />
+          <LessonNode title={t('home.node.u6')} status={getStatus('u6')} onClick={() => onStartLesson('u6')} isRight color="blue" />
         </UnitSection>
 
         {/* ── Unit 7 ── */}
         <UnitSection
           title={t('home.unit7.title')}
           subtitle={t('home.unit7.subtitle')}
-          progress="0/1"
+          progress={completedUnits.includes('u7') ? '1/1' : '0/1'}
           color="purple"
         >
-          <LessonNode title={t('home.node.u7')} status="locked" onClick={() => onStartLesson('u7')} color="purple" />
+          <LessonNode title={t('home.node.u7')} status={getStatus('u7')} onClick={() => onStartLesson('u7')} color="purple" />
         </UnitSection>
 
         {/* ── Unit 8 ── */}
         <UnitSection
           title={t('home.unit8.title')}
           subtitle={t('home.unit8.subtitle')}
-          progress="0/1"
+          progress={completedUnits.includes('u8') ? '1/1' : '0/1'}
           color="orange"
         >
-          <LessonNode title={t('home.node.u8')} status="locked" onClick={() => onStartLesson('u8')} isRight color="orange" />
+          <LessonNode title={t('home.node.u8')} status={getStatus('u8')} onClick={() => onStartLesson('u8')} isRight color="orange" />
         </UnitSection>
 
         {/* ── Unit 9 ── */}
         <UnitSection
           title={t('home.unit9.title')}
           subtitle={t('home.unit9.subtitle')}
-          progress="0/1"
+          progress={completedUnits.includes('u9') ? '1/1' : '0/1'}
           color="green"
         >
-          <LessonNode title={t('home.node.u9')} status="locked" onClick={() => onStartLesson('u9')} color="green" />
+          <LessonNode title={t('home.node.u9')} status={getStatus('u9')} onClick={() => onStartLesson('u9')} color="green" />
         </UnitSection>
 
         {/* ── Unit 10 ── */}
         <UnitSection
           title={t('home.unit10.title')}
           subtitle={t('home.unit10.subtitle')}
-          progress="0/1"
+          progress={completedUnits.includes('u10') ? '1/1' : '0/1'}
           color="blue"
         >
-          <LessonNode title={t('home.node.u10')} status="locked" onClick={() => onStartLesson('u10')} isRight color="blue" />
+          <LessonNode title={t('home.node.u10')} status={getStatus('u10')} onClick={() => onStartLesson('u10')} isRight color="blue" />
         </UnitSection>
 
         {/* ── Unit 11 ── */}
         <UnitSection
           title={t('home.unit11.title')}
           subtitle={t('home.unit11.subtitle')}
-          progress="0/1"
+          progress={completedUnits.includes('u11') ? '1/1' : '0/1'}
           color="purple"
         >
-          <LessonNode title={t('home.node.u11')} status="locked" onClick={() => onStartLesson('u11')} color="purple" />
+          <LessonNode title={t('home.node.u11')} status={getStatus('u11')} onClick={() => onStartLesson('u11')} color="purple" />
         </UnitSection>
 
         {/* ── Unit 12 ── */}
         <UnitSection
           title={t('home.unit12.title')}
           subtitle={t('home.unit12.subtitle')}
-          progress="0/1"
+          progress={completedUnits.includes('u12') ? '1/1' : '0/1'}
           color="orange"
         >
-          <LessonNode title={t('home.node.u12')} status="locked" onClick={() => onStartLesson('u12')} isRight color="orange" />
+          <LessonNode title={t('home.node.u12')} status={getStatus('u12')} onClick={() => onStartLesson('u12')} isRight color="orange" />
+        </UnitSection>
+
+        {/* ── Unit 13 ── */}
+        <UnitSection
+          title={t('home.unit13.title')}
+          subtitle={t('home.unit13.subtitle')}
+          progress={completedUnits.includes('u13') ? '1/1' : '0/1'}
+          color="green"
+        >
+          <LessonNode title={t('home.node.u13')} status={getStatus('u13')} onClick={() => onStartLesson('u13')} color="green" />
+        </UnitSection>
+
+        {/* ── Unit 14 ── */}
+        <UnitSection
+          title={t('home.unit14.title')}
+          subtitle={t('home.unit14.subtitle')}
+          progress={completedUnits.includes('u14') ? '1/1' : '0/1'}
+          color="blue"
+        >
+          <LessonNode title={t('home.node.u14')} status={getStatus('u14')} onClick={() => onStartLesson('u14')} isRight color="blue" />
+        </UnitSection>
+
+        {/* ── Unit 15 ── */}
+        <UnitSection
+          title={t('home.unit15.title')}
+          subtitle={t('home.unit15.subtitle')}
+          progress={completedUnits.includes('u15') ? '1/1' : '0/1'}
+          color="purple"
+        >
+          <LessonNode title={t('home.node.u15')} status={getStatus('u15')} onClick={() => onStartLesson('u15')} color="purple" />
+        </UnitSection>
+
+        {/* ── Unit 16 ── */}
+        <UnitSection
+          title={t('home.unit16.title')}
+          subtitle={t('home.unit16.subtitle')}
+          progress={completedUnits.includes('u16') ? '1/1' : '0/1'}
+          color="orange"
+        >
+          <LessonNode title={t('home.node.u16')} status={getStatus('u16')} onClick={() => onStartLesson('u16')} isRight color="orange" />
+        </UnitSection>
+
+        {/* ── Unit 17 ── */}
+        <UnitSection
+          title={t('home.unit17.title')}
+          subtitle={t('home.unit17.subtitle')}
+          progress={completedUnits.includes('u17') ? '1/1' : '0/1'}
+          color="green"
+        >
+          <LessonNode title={t('home.node.u17')} status={getStatus('u17')} onClick={() => onStartLesson('u17')} color="green" />
+        </UnitSection>
+
+        {/* ── Unit 18 ── */}
+        <UnitSection
+          title={t('home.unit18.title')}
+          subtitle={t('home.unit18.subtitle')}
+          progress={completedUnits.includes('u18') ? '1/1' : '0/1'}
+          color="blue"
+        >
+          <LessonNode title={t('home.node.u18')} status={getStatus('u18')} onClick={() => onStartLesson('u18')} isRight color="blue" />
+        </UnitSection>
+
+        {/* ── Unit 19 ── */}
+        <UnitSection
+          title={t('home.unit19.title')}
+          subtitle={t('home.unit19.subtitle')}
+          progress={completedUnits.includes('u19') ? '1/1' : '0/1'}
+          color="purple"
+        >
+          <LessonNode title={t('home.node.u19')} status={getStatus('u19')} onClick={() => onStartLesson('u19')} color="purple" />
+        </UnitSection>
+
+        {/* ── Unit 20 ── */}
+        <UnitSection
+          title={t('home.unit20.title')}
+          subtitle={t('home.unit20.subtitle')}
+          progress={completedUnits.includes('u20') ? '1/1' : '0/1'}
+          color="orange"
+        >
+          <LessonNode title={t('home.node.u20')} status={getStatus('u20')} onClick={() => onStartLesson('u20')} isRight color="orange" />
         </UnitSection>
       </div>
     </div>

@@ -9,3 +9,14 @@
 body {
   background-color: #e5e7eb; /* gray-200 for outer background */
 }
+
+@keyframes ripple {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+@utility animate-ripple {
+  animation: ripple 0.6s linear forwards;
+}

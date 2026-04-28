@@ -67,6 +67,31 @@ export const u3: LessonData = {
     },
     {
       id: 4,
+      type: "quiz",
+      arabic: "كِتَابٍ",
+      armenian: "գիրք (անորոշ, սեռական)",
+      transliteration: "kitābin",
+      meaning: "Ընտրե՛ք ճիշտ թանուինը (جر — genitive):",
+      options: [
+        { text: "كِتَابٌ", correct: false },
+        { text: "كِتَابًا", correct: false },
+        { text: "كِتَابٍ", correct: true },
+      ],
+    },
+    {
+      id: 41,
+      type: "quiz",
+      arabic: "كِتَابٍ",
+      armenian: "գիրք (անորոշ, սեռական)",
+      transliteration: "kitābin",
+      meaning: "Կրկնություն: Ընտրե՛ք ճիշտ թանուինը (جر):",
+      options: [
+        { text: "كِتَابًا", correct: false },
+        { text: "كِتَابٍ", correct: true },
+      ],
+    },
+    {
+      id: 5,
       type: "speak",
       arabic: "كِتَابٌ — كِتَابًا — كِتَابٍ",
       armenian: "Կրկնե՛ք երեք թանուիններն ըստ հերթ.",
@@ -75,7 +100,7 @@ export const u3: LessonData = {
       hintIcon: "🎙️",
     },
     {
-      id: 5,
+      id: 6,
       type: "listen",
       arabic: "هَذَا كِتَابٌ",
       armenian: "Սա գիրք է",
@@ -84,7 +109,7 @@ export const u3: LessonData = {
       hintIcon: "📘",
     },
     {
-      id: 6,
+      id: 7,
       type: "match",
       arabic: "تنوين",
       armenian: "Թանուինների կապ",
@@ -97,7 +122,7 @@ export const u3: LessonData = {
       ],
     },
     {
-      id: 7,
+      id: 8,
       type: "write",
       arabic: "كِتَابٌ",
       armenian: "գիրք (անորոշ, ուղղ.)",

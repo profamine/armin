@@ -4,27 +4,20 @@ import {
   Bot,
   User,
   Mic,
-  MicOff,
   Volume2,
   Copy,
   Check,
-  RotateCcw,
   Sparkles,
   BookOpen,
   Languages,
   ChevronDown,
   Smile,
-  Paperclip,
   MoreVertical,
   Phone,
   Video,
   ArrowLeft,
-  Star,
   ThumbsUp,
   ThumbsDown,
-  Loader2,
-  X,
-  MessageCircle,
   Lightbulb,
   GraduationCap,
   Clock,
@@ -62,105 +55,85 @@ interface QuickReply {
 }
 
 // ===== AI Response Logic =====
-const aiResponses: Record<string, { text: string; translation?: string; transliteration?: string; vocabulary?: VocabWord[]; type?: string }> = {
-  'مرحبا': {
-    text: 'مرحباً! كيف حالك اليوم؟',
-    translation: 'Բարև! Ինչպե՞ս ես այսօր:',
-    transliteration: 'Marhaba! Kayf halak alyawm?',
-    vocabulary: [
-      { arabic: 'مرحباً', armenian: 'Բարև', transliteration: 'Marhaba' },
-      { arabic: 'كيف حالك', armenian: 'Ինչպե՞ս ես', transliteration: 'Kayf halak' },
-    ],
-  },
-};
+const SYSTEM_PROMPT = `You are "Armin", a friendly and encouraging Arabic tutor for Armenian speakers.
 
-const getAIResponse = (userMessage: string): Omit<Message, 'id' | 'timestamp'> => {
-  const lowerMsg = userMessage.toLowerCase().trim();
+## Your Role
+- Teach Modern Standard Arabic (MSA) to Armenian-speaking beginners (A1 level).
+- Always respond in BOTH Arabic and Armenian (Հայերեն).
+- Keep a warm, patient, and motivating tone — celebrate small wins.
 
-  if (lowerMsg.includes('مرحبا') || lowerMsg.includes('سلام') || lowerMsg.includes('باrev') || lowerMsg.includes('բարև')) {
-    return {
-      sender: 'ai',
-      text: 'وعليكم السلام! كيف حالك اليوم؟ 😊\n\nԲարև ձեզ! Ինչպե՞ս եք այսօր:',
-      translation: 'Բարև ձեզ! Ինչպե՞ս եք այսօր:',
-      transliteration: "Wa'alaykum assalam! Kayf halak alyawm?",
-      vocabulary: [
-        { arabic: 'السلام عليكم', armenian: 'Խաղաղություն ձեզ', transliteration: 'Assalamu alaykum' },
-        { arabic: 'كيف حالك', armenian: 'Ինչպե՞ս ես', transliteration: 'Kayf halak' },
-        { arabic: 'اليوم', armenian: 'Այսօր', transliteration: 'Alyawm' },
-      ],
-      type: 'text',
-    };
-  }
+## Response Format (ALWAYS follow this structure)
+1. **Arabic text** — written clearly with full harakat (تشكيل) when possible.
+2. **Armenian translation** — accurate and natural.
+3. **Transliteration** — in Latin letters for pronunciation help.
+4. **Vocabulary** — at the end, list 2-4 new words in this format:
+   [VOCAB]
+   word_arabic | word_armenian | transliteration
+   [/VOCAB]
 
-  if (lowerMsg.includes('شكرا') || lowerMsg.includes('շնորհակալություն') || lowerMsg.includes('merci')) {
-    return {
-      sender: 'ai',
-      text: 'عفواً! أنت تتعلم بسرعة! 🌟\n\nԽնդրեմ! Դուք արագ եք սովորում!',
-      translation: 'Խնդրեմ! Դուք արագ եք սովորում!',
-      transliteration: "'Afwan! Anta tata'allam bisur'a!",
-      vocabulary: [
-        { arabic: 'عفواً', armenian: 'Խնդրեմ', transliteration: "'Afwan" },
-        { arabic: 'تتعلم', armenian: 'Սովորում ես', transliteration: "Tata'allam" },
-        { arabic: 'بسرعة', armenian: 'Արագ', transliteration: "Bisur'a" },
-      ],
-      type: 'text',
-    };
-  }
+## Teaching Rules
+- If the user makes an Arabic error, gently correct it. Show the wrong form ❌ then the correct form ✓.
+- Use simple sentences. Avoid complex grammar explanations.
+- Occasionally ask the user a question to keep them engaged.
+- Use emojis sparingly to make responses friendly (✅ ❌ 📚 🌟).
+- If the user writes in Armenian, respond fully in Armenian + Arabic.
+- If the user writes in Arabic (even incorrectly), praise the attempt first.
 
-  if (lowerMsg.includes('quiz') || lowerMsg.includes('test') || lowerMsg.includes('քննություն') || lowerMsg.includes('امتحان')) {
-    return {
-      sender: 'ai',
-      text: "📝 هيا نختبر معلوماتك!\n\nما معنى كلمة 'كتاب' بالأرمنية؟\n\nأ) Տուն\nب) Գիրք\nج) Մարդ\nد) Դպրոց",
-      translation: 'Եկեք ստուգենք ձեր գիտելիքները:\n\nԻ՞նչ է նշանակում «գիրք» բառը հայերեն:',
-      type: 'quiz',
-    };
-  }
+## Context
+The user is learning Arabic through a gamified app. They have completed structured lessons.
+This chat is for free practice and questions.`;
 
-  if (lowerMsg.includes('help') || lowerMsg.includes('օգնություն') || lowerMsg.includes('مساعدة')) {
-    return {
-      sender: 'ai',
-      text: '🎓 يمكنني مساعدتك في:\n\n1️⃣ تعلم كلمات جديدة\n2️⃣ تصحيح القواعد\n3️⃣ اختبارات قصيرة\n4️⃣ محادثة حرة\n5️⃣ ترجمة جمل\n\nماذا تريد أن تتعلم اليوم؟',
-      translation: 'Ես կարող եմ օգնել ձեզ՝\n1️⃣ սովորել նոր բառեր\n2️⃣ ուղղել քերականությունը\n3️⃣ կարճ թեստեր\n4️⃣ ազատ զրույց\n5️⃣ թարգմանել նախադասություններ\n\nԻ՞նչ եք ուզում սովորել այսօր:',
-      type: 'tip',
-    };
-  }
-
-  // Default responses
-  const defaults = [
-    {
-      text: 'ممتاز! استمر في التعلم! 📚\n\nهل تريد أن نتعلم كلمات جديدة أم نمارس المحادثة؟',
-      translation: 'Գերազանց է: Շարունակեք սովորել: Ուզու՞մ եք նոր բառեր սովորել, թե՞ զրուցել:',
-      transliteration: 'Mumtaz! Istamirr fi al-ta\'allum!',
-      vocabulary: [
-        { arabic: 'ممتاز', armenian: 'Գերազանց', transliteration: 'Mumtaz' },
-        { arabic: 'استمر', armenian: 'Շարունակիր', transliteration: 'Istamirr' },
-        { arabic: 'التعلم', armenian: 'Սովորել', transliteration: "Al-ta'allum" },
-      ],
-    },
-    {
-      text: 'جيد جداً! 👏 لقد استخدمت الجملة بشكل صحيح.\n\nدعنا نتعلم المزيد!',
-      translation: 'Շատ լավ: Դուք ճիշտ օգտագործեցիք նախադասությունը: Եկեք ավելին սովորենք:',
-      transliteration: 'Jayyid jiddan!',
-    },
-    {
-      text: "💡 نصيحة اليوم:\nفي اللغة العربية، الفعل يأتي قبل الفاعل.\nمثال: 'ذهب الولد' وليس 'الولد ذهب'\n\nԱրաբերենում բայը գալիս է ենթակայից առաջ:",
-      translation: 'Արաբերենում բայը գալիս է ենթակայից առաջ:',
-      type: 'tip',
-    },
-    {
-      text: '🔤 كلمة جديدة:\n\nسعادة (sa\'ada) = Երջանկություն\n\nمثال: أشعر بالسعادة اليوم\n(Ես այսօր երջանիկ եմ զգում)',
-      translation: 'Նոր բառ՝ Երջանկություն',
-      vocabulary: [
-        { arabic: 'سعادة', armenian: 'Երջանկություն', transliteration: "Sa'ada" },
-        { arabic: 'أشعر', armenian: 'Զգում եմ', transliteration: "Ash'ur" },
-      ],
-    },
+const sendMessageToAI = async (
+  userText: string,
+  history: Message[]
+): Promise<Omit<Message, 'id' | 'timestamp'>> => {
+  const contents = [
+    ...history.filter(m => !m.isTyping).map(m => ({
+      role: m.sender === 'user' ? 'user' : 'model',
+      parts: [{ text: m.text }],
+    })),
+    { role: 'user', parts: [{ text: userText }] },
   ];
+
+  const res = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents, systemInstruction: SYSTEM_PROMPT }),
+  });
+
+  if (!res.ok) {
+    let errorMsg = `Server error ${res.status}`;
+    try {
+      const errorData = await res.json();
+      if (errorData.error) errorMsg += `: ${errorData.error}`;
+    } catch (e) {}
+    throw new Error(errorMsg);
+  }
+  const data = await res.json();
+  let text = data.text || '...';
+
+  let vocabulary: VocabWord[] | undefined;
+  const vocabMatch = text.match(/\[VOCAB\]([\s\S]*?)\[\/VOCAB\]/);
+  if (vocabMatch) {
+    const vocabLines = vocabMatch[1].trim().split('\n');
+    vocabulary = vocabLines.map((line: string) => {
+      const parts = line.split('|').map(p => p.trim());
+      return {
+        arabic: parts[0] || '',
+        armenian: parts[1] || '',
+        transliteration: parts[2] || '',
+      };
+    }).filter((v: VocabWord) => v.arabic && v.armenian);
+    
+    // Remove the vocab block from the text
+    text = text.replace(/\[VOCAB\][\s\S]*?\[\/VOCAB\]/, '').trim();
+  }
 
   return {
     sender: 'ai',
-    ...defaults[Math.floor(Math.random() * defaults.length)],
+    text,
     type: 'text',
+    vocabulary,
   };
 };
 
@@ -415,6 +388,11 @@ export default function ChatScreen() {
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
+  const messagesRef = useRef<Message[]>(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -433,13 +411,14 @@ export default function ChatScreen() {
     setShowScrollDown(scrollHeight - scrollTop - clientHeight > 100);
   };
 
-  const handleSend = (text?: string) => {
+  const handleSend = async (text?: string) => {
     const messageText = text || input;
-    if (!messageText.trim()) return;
+    const trimmed = messageText.trim();
+    if (!trimmed) return;
 
     const userMsg: Message = {
       id: Date.now(),
-      text: messageText,
+      text: trimmed,
       sender: 'user',
       timestamp: new Date(),
     };
@@ -449,19 +428,30 @@ export default function ChatScreen() {
     setShowQuickReplies(false);
     setIsTyping(true);
 
-    // Simulate AI thinking + typing
-    const thinkTime = 800 + Math.random() * 1200;
-    setTimeout(() => {
-      const response = getAIResponse(messageText);
-      const aiMsg: Message = {
-        id: Date.now() + 1,
-        ...response,
-        timestamp: new Date(),
-      };
+    const currentMessages = [...messagesRef.current, userMsg];
+
+    try {
+      const aiMsg = await sendMessageToAI(trimmed, currentMessages);
+      setMessages((prev) => [
+        ...prev,
+        { ...aiMsg, id: Date.now() + 2, timestamp: new Date() },
+      ]);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Կներեք, խնդիր առաջացավ: Խնդրում ենք փորձել կրկին:';
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 2,
+          sender: 'ai',
+          timestamp: new Date(),
+          text: `⚠️ Սխալ: ${errorMsg}`,
+          type: 'text',
+        },
+      ]);
+    } finally {
       setIsTyping(false);
-      setMessages((prev) => [...prev, aiMsg]);
       setShowQuickReplies(true);
-    }, thinkTime);
+    }
   };
 
   const handleRate = (id: number, rating: 'up' | 'down') => {
@@ -628,6 +618,7 @@ export default function ChatScreen() {
             <input
               ref={inputRef}
               type="text"
+              disabled={isTyping}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -644,12 +635,13 @@ export default function ChatScreen() {
           {input.trim() ? (
             <button
               onClick={() => handleSend()}
-              className="w-11 h-11 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-full flex items-center justify-center hover:from-emerald-600 hover:to-teal-700 transition-all shadow-md shadow-emerald-200 active:scale-95 flex-shrink-0"
+              disabled={isTyping}
+              className={`w-11 h-11 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-full flex items-center justify-center transition-all shadow-md flex-shrink-0 ${isTyping ? 'opacity-50 cursor-not-allowed' : 'hover:from-emerald-600 hover:to-teal-700 shadow-emerald-200 active:scale-95'}`}
             >
               <Send size={18} className="ml-0.5" />
             </button>
           ) : (
-            <button className="w-11 h-11 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-full flex items-center justify-center hover:from-emerald-600 hover:to-teal-700 transition-all shadow-md shadow-emerald-200 active:scale-95 flex-shrink-0">
+            <button disabled={isTyping} className={`w-11 h-11 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-full flex items-center justify-center transition-all shadow-md flex-shrink-0 ${isTyping ? 'opacity-50 cursor-not-allowed' : 'hover:from-emerald-600 hover:to-teal-700 shadow-emerald-200 active:scale-95'}`}>
               <Mic size={18} />
             </button>
           )}

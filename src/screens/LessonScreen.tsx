@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useId, useMemo } from 'react';
 import {
   X,
   Mic,
@@ -56,28 +56,31 @@ const playSound = (type: 'correct' | 'wrong' | 'complete' | 'click' | 'speak') =
 // ===== Animated Counter Component =====
 function AnimatedCounter({ value, duration = 500 }: { value: number; duration?: number }) {
   const [display, setDisplay] = useState(0);
+  const previousValue = useRef(0);
 
   useEffect(() => {
-    let start = display;
-    const increment = (value - start) / (duration / 16);
-    let current = start;
+    const start = previousValue.current;
+    previousValue.current = value;
+    if (start === value) return;
+
+    const steps = Math.ceil(duration / 16);
+    let step = 0;
     const timer = setInterval(() => {
-      current += increment;
-      if ((increment > 0 && current >= value) || (increment < 0 && current <= value)) {
-        setDisplay(value);
-        clearInterval(timer);
-      } else {
-        setDisplay(Math.round(current));
-      }
+      step++;
+      const progress = step / steps;
+      setDisplay(Math.round(start + (value - start) * Math.min(progress, 1)));
+      if (step >= steps) clearInterval(timer);
     }, 16);
+
     return () => clearInterval(timer);
-  }, [value]);
+  }, [value, duration]);
 
   return <span>{display}</span>;
 }
 
 // ===== Circular Progress Component =====
 function CircularProgress({ progress, size = 40, strokeWidth = 3 }: { progress: number; size?: number; strokeWidth?: number }) {
+  const gradientId = useId();
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const offset = circumference - (progress / 100) * circumference;
@@ -89,7 +92,7 @@ function CircularProgress({ progress, size = 40, strokeWidth = 3 }: { progress: 
         cx={size / 2}
         cy={size / 2}
         r={radius}
-        stroke="url(#gradient)"
+        stroke={`url(#${gradientId})`}
         strokeWidth={strokeWidth}
         fill="none"
         strokeDasharray={circumference}
@@ -98,7 +101,7 @@ function CircularProgress({ progress, size = 40, strokeWidth = 3 }: { progress: 
         className="transition-all duration-700 ease-out"
       />
       <defs>
-        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="#10b981" />
           <stop offset="100%" stopColor="#059669" />
         </linearGradient>
@@ -109,35 +112,39 @@ function CircularProgress({ progress, size = 40, strokeWidth = 3 }: { progress: 
 
 // ===== Particle Effect Component =====
 function ParticleExplosion({ active }: { active: boolean }) {
+  const particles = useMemo(() => {
+    return Array.from({ length: 20 }).map((_, i) => {
+      const angle = (i / 20) * 360;
+      const distance = 60 + Math.random() * 100;
+      const x = Math.cos((angle * Math.PI) / 180) * distance;
+      const y = Math.sin((angle * Math.PI) / 180) * distance;
+      const colors = ['🌟', '⭐', '✨', '💫', '🎉', '🎊'];
+      const emoji = colors[Math.floor(Math.random() * colors.length)];
+      const size = 14 + Math.random() * 16;
+      const duration = 0.6 + Math.random() * 0.5;
+      return { x, y, emoji, size, duration };
+    });
+  }, []);
+
   if (!active) return null;
 
   return (
     <div className="fixed inset-0 pointer-events-none z-50">
-      {Array.from({ length: 20 }).map((_, i) => {
-        const angle = (i / 20) * 360;
-        const distance = 60 + Math.random() * 100;
-        const x = Math.cos((angle * Math.PI) / 180) * distance;
-        const y = Math.sin((angle * Math.PI) / 180) * distance;
-        const colors = ['🌟', '⭐', '✨', '💫', '🎉', '🎊'];
-        const emoji = colors[Math.floor(Math.random() * colors.length)];
-        const size = 14 + Math.random() * 16;
-        const duration = 0.6 + Math.random() * 0.5;
-
-        return (
-          <div
-            key={i}
-            className="absolute left-1/2 top-1/2 animate-ping"
-            style={{
-              fontSize: size,
-              transform: `translate(${x}px, ${y}px)`,
-              animation: `particleFly ${duration}s ease-out forwards`,
-              opacity: 0,
-            }}
-          >
-            {emoji}
-          </div>
-        );
-      })}
+      {particles.map((p, i) => (
+        <div
+          key={i}
+          className="absolute left-1/2 top-1/2"
+          style={{
+            fontSize: p.size,
+            animation: `particleFly ${p.duration}s ease-out forwards`,
+            '--tx': `${p.x}px`,
+            '--ty': `${p.y}px`,
+            opacity: 0,
+          } as React.CSSProperties}
+        >
+          {p.emoji}
+        </div>
+      ))}
       <style>{`
         @keyframes particleFly {
           0% { opacity: 1; transform: translate(0, 0) scale(0.5); }
@@ -167,16 +174,21 @@ function HeartsDisplay({ lives, maxLives = 3 }: { lives: number; maxLives?: numb
 
 // ===== Waveform Animation =====
 function WaveformAnimation({ active }: { active: boolean }) {
+  const heights = useMemo(
+    () => Array.from({ length: 20 }, () => 20 + Math.random() * 40),
+    []
+  );
+
   return (
     <div className="flex items-center justify-center gap-1 h-16">
-      {Array.from({ length: 20 }).map((_, i) => (
+      {heights.map((h, i) => (
         <div
           key={i}
           className={`w-1 rounded-full transition-all duration-150 ${
             active ? 'bg-gradient-to-t from-red-500 to-red-300' : 'bg-gray-300'
           }`}
           style={{
-            height: active ? `${20 + Math.random() * 40}px` : '8px',
+            height: active ? `${h}px` : '8px',
             animation: active ? `wave 0.5s ease-in-out ${i * 0.05}s infinite alternate` : 'none',
           }}
         />
@@ -184,7 +196,7 @@ function WaveformAnimation({ active }: { active: boolean }) {
       <style>{`
         @keyframes wave {
           0% { height: 8px; }
-          100% { height: ${20 + Math.random() * 40}px; }
+          100% { height: 40px; }
         }
       `}</style>
     </div>
@@ -195,10 +207,12 @@ function WaveformAnimation({ active }: { active: boolean }) {
 function CompletionScreen({
   xpEarned,
   accuracy,
+  timeStr,
   onContinue,
 }: {
   xpEarned: number;
   accuracy: number;
+  timeStr: string;
   onContinue: () => void;
 }) {
   const { t } = useLanguage();
@@ -296,7 +310,7 @@ function CompletionScreen({
                   <Clock size={20} className="text-blue-300" />
                   <span className="font-medium">{t('lesson.time')}</span>
                 </div>
-                <span className="text-lg font-bold text-blue-300">2:34</span>
+                <span className="text-lg font-bold text-blue-300">{timeStr}</span>
               </div>
             </div>
 
@@ -314,7 +328,21 @@ function CompletionScreen({
 }
 
 // ===== Main Lesson Screen =====
-export default function LessonScreen({ onBack, lessonId }: { onBack: () => void; lessonId: string | null }) {
+const normalize = (s: string) =>
+  s.trim()
+   .replace(/[\u200f\u200e\u200b]/g, '')   // remove directional marks
+   .replace(/[\u064B-\u065F]/g, '')         // strip all tashkeel (diacritics)
+   .replace(/\s+/g, ' ');
+
+export default function LessonScreen({
+  onBack,
+  lessonId,
+  onComplete,
+}: {
+  onBack: () => void;
+  lessonId: string | null;
+  onComplete: (lessonId: string, xpEarned: number) => void;
+}) {
   const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(0);
   const [recording, setRecording] = useState(false);
@@ -328,6 +356,7 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [quizAnswered, setQuizAnswered] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
+  const startTimeRef = useRef(Date.now());
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [totalAnswered, setTotalAnswered] = useState(0);
   const [shakeWrong, setShakeWrong] = useState(false);
@@ -346,7 +375,17 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
   const [shuffledArabics, setShuffledArabics] = useState<string[]>([]);
   const [shuffledArmenians, setShuffledArmenians] = useState<string[]>([]);
 
-  const lesson = lessonId && lessonsData[lessonId] ? lessonsData[lessonId] : lessonsData['u1'];
+  const isValidLesson = lessonId && lessonsData[lessonId];
+
+  useEffect(() => {
+    if (!isValidLesson) {
+      onBack();
+    }
+  }, [isValidLesson, onBack]);
+
+  if (!isValidLesson) return null;
+
+  const lesson = lessonsData[lessonId!];
   const steps = lesson.steps;
   const step = steps[currentStep];
   const progress = ((currentStep + 1) / steps.length) * 100;
@@ -470,13 +509,15 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
         if (isPair) {
           setXp((prevXp) => prevXp + 5);
           playSound('correct');
-          setMatchedPairs((mp) => [...mp, next.arabic!, next.armenian!]);
-          // Check if it's the last pair
-          if (step.pairs && matchedPairs.length + 2 >= step.pairs.length * 2) {
-            setStreak((prevStreak) => prevStreak + 1);
-            setCorrectAnswers((prevCA) => prevCA + 1);
-            setTotalAnswered((prevTA) => prevTA + 1);
-          }
+          setMatchedPairs((mp) => {
+            const updated = [...mp, next.arabic!, next.armenian!];
+            if (step.pairs && updated.length >= step.pairs.length * 2) {
+              setStreak((prevStreak) => prevStreak + 1);
+              setCorrectAnswers((prevCA) => prevCA + 1);
+              setTotalAnswered((prevTA) => prevTA + 1);
+            }
+            return updated;
+          });
         } else {
           setLives((prevLives) => Math.max(0, prevLives - 1));
           setStreak(0);
@@ -496,8 +537,7 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
     setWriteAnswered(true);
     setTotalAnswered((prev) => prev + 1);
 
-    // Normalize comparison slightly, maybe ignore hamzas or extra spaces in real app, here exact match for simplicity
-    const isCorrect = writeInput.trim() === step.arabic.trim();
+    const isCorrect = normalize(writeInput) === normalize(step.arabic);
     setWriteCorrect(isCorrect);
     
     if (isCorrect) {
@@ -543,18 +583,26 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
 
   const canProceed =
     step.type === 'listen' ||
-    feedback === 'excellent' ||
-    feedback === 'good' ||
-    (step.type === 'quiz' && quizAnswered && step.options![selectedAnswer!]?.correct) ||
+    feedback !== null ||                               // speak: any feedback
+    (step.type === 'quiz' && quizAnswered) ||          // quiz: answered (right or wrong)
     (step.type === 'match' && matchedPairs.length === (step.pairs?.length || 0) * 2) ||
-    (step.type === 'write' && writeAnswered && writeCorrect);
+    (step.type === 'write' && writeAnswered);          // write: submitted (right or wrong)
 
   if (showCompletion) {
+    const elapsed = Math.round((Date.now() - startTimeRef.current) / 1000);
+    const minutes = Math.floor(elapsed / 60);
+    const seconds = elapsed % 60;
+    const timeStr = `${minutes}:${String(seconds).padStart(2, '0')}`;
+
     return (
       <CompletionScreen
         xpEarned={xp}
         accuracy={totalAnswered > 0 ? Math.round((correctAnswers / totalAnswered) * 100) : 100}
-        onContinue={onBack}
+        timeStr={timeStr}
+        onContinue={() => {
+          if (lessonId) onComplete(lessonId, xp);
+          onBack();
+        }}
       />
     );
   }
@@ -747,7 +795,7 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
               <div className="text-5xl font-arabic leading-loose text-gray-900 mb-4" dir="rtl">
                 {step.highlightChar
                   ? step.arabic.split('').map((char, i) => {
-                      if (step.arabic.substring(i).startsWith(step.highlightChar!)) {
+                      if (step.arabic[i] === step.highlightChar) {
                         return (
                           <span key={i} className="text-red-500 font-bold relative">
                             {char}
@@ -927,7 +975,7 @@ export default function LessonScreen({ onBack, lessonId }: { onBack: () => void;
                         isMatched
                           ? 'bg-gray-100 border-gray-200 text-gray-300 opacity-50'
                           : isSelected
-                          ? 'bg-blue-50 border-blue-400 text-blue-700 w-[105%] -ml-[-5%] z-10 shadow-md'
+                          ? 'bg-blue-50 border-blue-400 text-blue-700 w-[105%] ml-[5%] z-10 shadow-md'
                           : 'bg-white border-gray-200 text-gray-800 hover:border-blue-300 hover:bg-slate-50 shadow-sm'
                       }`}
                     >

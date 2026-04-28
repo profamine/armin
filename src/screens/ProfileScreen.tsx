@@ -25,14 +25,36 @@ interface StatCardProps {
 
 const WEEKDAY_LABELS = ['Կ', 'Ե', 'Ե', 'Չ', 'Հ', 'Ո', 'Շ'];
 
-const ACTIVE_DAYS = new Set([2, 3, 4, 5, 9, 10, 11, 12, 16, 17, 18, 19, 23, 24, 25, 26, 27]);
-
-const TODAY_INDEX = 27;
-
 // ─── ProfileScreen ────────────────────────────────────────────────────────────
 
-export default function ProfileScreen() {
+export default function ProfileScreen({
+  completedUnits,
+  totalXP,
+  streak,
+}: {
+  completedUnits: string[];
+  totalXP: number;
+  streak: number;
+}) {
   const { t, language, setLanguage } = useLanguage();
+
+  const levelBadge = completedUnits.length < 4 ? 'A1' : completedUnits.length < 8 ? 'A2' : 'B1';
+
+  const studyDates: string[] = JSON.parse(
+    localStorage.getItem('studyHistory') || '[]'
+  );
+
+  const ach1Done  = completedUnits.length >= 1;
+  const ach2Done  = streak >= 3;
+  const ach3Done  = completedUnits.length >= 10;
+  const ach4Done  = completedUnits.length >= 20;
+  const achCount  = [ach1Done, ach2Done, ach3Done, ach4Done].filter(Boolean).length;
+
+  const daysActiveLast28 = Array.from({ length: 28 }).filter((_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (27 - i));
+    return studyDates.includes(date.toDateString());
+  }).length;
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 pb-24">
@@ -60,7 +82,7 @@ export default function ProfileScreen() {
             </div>
             {/* Level badge on avatar */}
             <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white">
-              A1
+              {levelBadge}
             </div>
           </div>
 
@@ -78,7 +100,7 @@ export default function ProfileScreen() {
           {/* Total XP pill */}
           <div className="flex flex-col items-center bg-yellow-50 border border-yellow-200 rounded-2xl px-4 py-3">
             <Zap size={18} className="text-yellow-500 mb-0.5" />
-            <span className="text-lg font-bold text-gray-800 leading-none">850</span>
+            <span className="text-lg font-bold text-gray-800 leading-none">{totalXP}</span>
             <span className="text-[10px] text-gray-500 font-medium mt-0.5">XP</span>
           </div>
         </div>
@@ -92,19 +114,19 @@ export default function ProfileScreen() {
             <StatCard
               icon={<Flame size={22} />}
               iconBg="bg-orange-100 text-orange-500"
-              value={14}
+              value={streak}
               label={t('profile.streak')}
             />
             <StatCard
               icon={<BookOpen size={22} />}
               iconBg="bg-blue-100 text-blue-500"
-              value={42}
+              value={completedUnits.length}
               label={t('profile.lessons_done')}
             />
             <StatCard
               icon={<Trophy size={22} />}
               iconBg="bg-yellow-100 text-yellow-500"
-              value="2/8"
+              value={`${achCount}/4`}
               label={t('profile.achievements')}
             />
             <StatCard
@@ -130,8 +152,8 @@ export default function ProfileScreen() {
               iconBg="bg-yellow-100 text-yellow-500"
               title={t('profile.ach1.title')}
               description={t('profile.ach1.desc')}
-              progress={100}
-              completed
+              progress={ach1Done ? 100 : 0}
+              completed={ach1Done}
               xp={50}
             />
             <AchievementCard
@@ -139,8 +161,8 @@ export default function ProfileScreen() {
               iconBg="bg-orange-100 text-orange-500"
               title={t('profile.ach2.title')}
               description={t('profile.ach2.desc')}
-              progress={100}
-              completed
+              progress={Math.min(100, (streak / 3) * 100)}
+              completed={ach2Done}
               xp={100}
             />
             <AchievementCard
@@ -148,8 +170,18 @@ export default function ProfileScreen() {
               iconBg="bg-blue-100 text-blue-500"
               title={t('profile.ach3.title')}
               description={t('profile.ach3.desc')}
-              progress={45}
+              progress={Math.min(100, (completedUnits.length / 10) * 100)}
+              completed={ach3Done}
               xp={200}
+            />
+            <AchievementCard
+              icon={<Star size={22} />}
+              iconBg="bg-green-100 text-green-500"
+              title="Ավարտել բոլորը"
+              description="Ավարտել բոլոր 20 դասերը"
+              progress={Math.min(100, (completedUnits.length / 20) * 100)}
+              completed={ach4Done}
+              xp={500}
             />
           </div>
         </section>
@@ -184,8 +216,12 @@ export default function ProfileScreen() {
             {/* Day cells */}
             <div className="grid grid-cols-7 gap-1.5">
               {Array.from({ length: 28 }).map((_, i) => {
-                const isActive = ACTIVE_DAYS.has(i);
-                const isToday = i === TODAY_INDEX;
+                const date = new Date();
+                date.setDate(date.getDate() - (27 - i));
+                const dateStr = date.toDateString();
+                const isActive = studyDates.includes(dateStr);
+                const isToday = i === 27;
+
                 return (
                   <div
                     key={i}
@@ -196,7 +232,7 @@ export default function ProfileScreen() {
                       ${isToday ? 'ring-2 ring-offset-1 ring-green-500' : ''}
                     `}
                   >
-                    {i + 1}
+                    {date.getDate()}
                   </div>
                 );
               })}
@@ -205,17 +241,17 @@ export default function ProfileScreen() {
             {/* Streak summary */}
             <div className="mt-4 pt-3 border-t border-gray-100 flex justify-around text-center">
               <div>
-                <div className="text-lg font-bold text-gray-800">17</div>
+                <div className="text-lg font-bold text-gray-800">{daysActiveLast28}</div>
                 <div className="text-[10px] text-gray-500">{t('profile.days_month')}</div>
               </div>
               <div className="w-px bg-gray-100" />
               <div>
-                <div className="text-lg font-bold text-orange-500">14 🔥</div>
+                <div className="text-lg font-bold text-orange-500">{streak} 🔥</div>
                 <div className="text-[10px] text-gray-500">{t('profile.streak_label')}</div>
               </div>
               <div className="w-px bg-gray-100" />
               <div>
-                <div className="text-lg font-bold text-gray-800">61%</div>
+                <div className="text-lg font-bold text-gray-800">{Math.round((daysActiveLast28 / 28) * 100)}%</div>
                 <div className="text-[10px] text-gray-500">{t('profile.monthly_label')}</div>
               </div>
             </div>
