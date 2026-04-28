@@ -231,6 +231,46 @@ export default function HomeScreen({
         >
           <LessonNode title={t('home.node.u8')} status="locked" onClick={() => onStartLesson('u8')} isRight color="orange" />
         </UnitSection>
+
+        {/* ── Unit 9 ── */}
+        <UnitSection
+          title={t('home.unit9.title')}
+          subtitle={t('home.unit9.subtitle')}
+          progress="0/1"
+          color="green"
+        >
+          <LessonNode title={t('home.node.u9')} status="locked" onClick={() => onStartLesson('u9')} color="green" />
+        </UnitSection>
+
+        {/* ── Unit 10 ── */}
+        <UnitSection
+          title={t('home.unit10.title')}
+          subtitle={t('home.unit10.subtitle')}
+          progress="0/1"
+          color="blue"
+        >
+          <LessonNode title={t('home.node.u10')} status="locked" onClick={() => onStartLesson('u10')} isRight color="blue" />
+        </UnitSection>
+
+        {/* ── Unit 11 ── */}
+        <UnitSection
+          title={t('home.unit11.title')}
+          subtitle={t('home.unit11.subtitle')}
+          progress="0/1"
+          color="purple"
+        >
+          <LessonNode title={t('home.node.u11')} status="locked" onClick={() => onStartLesson('u11')} color="purple" />
+        </UnitSection>
+
+        {/* ── Unit 12 ── */}
+        <UnitSection
+          title={t('home.unit12.title')}
+          subtitle={t('home.unit12.subtitle')}
+          progress="0/1"
+          color="orange"
+        >
+          <LessonNode title={t('home.node.u12')} status="locked" onClick={() => onStartLesson('u12')} isRight color="orange" />
+        </UnitSection>
       </div>
     </div>
   );
