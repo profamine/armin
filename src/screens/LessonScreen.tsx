@@ -400,37 +400,48 @@ export default function LessonScreen({
     }
   }, [step]);
 
-  const handlePlayAudio = () => {
-    if (isPlaying) return;
+  const playVoice = async (rate: number) => {
+    if (isPlaying || !('speechSynthesis' in window)) {
+      if (!('speechSynthesis' in window)) {
+        // Fallback simulate playing time
+        setIsPlaying(true);
+        playSound('click');
+        setTimeout(() => setIsPlaying(false), rate === 0.4 ? 3000 : 2000);
+      }
+      return;
+    }
+
     setIsPlaying(true);
     playSound('click');
+    window.speechSynthesis.cancel(); // Cancel any previous speech
 
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(step.arabic);
-      utterance.lang = 'ar-SA';
-      utterance.rate = 0.8;
-      utterance.onend = () => setIsPlaying(false);
-      window.speechSynthesis.speak(utterance);
-    } else {
-      setTimeout(() => setIsPlaying(false), 2000);
-    }
+    const utterance = new SpeechSynthesisUtterance(step.arabic);
+    utterance.lang = 'ar-SA';
+    utterance.rate = rate;
+    utterance.volume = 1;
+
+    // Wait for voices to load
+    const voices = await new Promise<SpeechSynthesisVoice[]>((resolve) => {
+      const v = window.speechSynthesis.getVoices();
+      if (v.length) return resolve(v);
+      window.speechSynthesis.onvoiceschanged = () => {
+        resolve(window.speechSynthesis.getVoices());
+      };
+      // Fallback in case onvoiceschanged never fires
+      setTimeout(() => resolve(window.speechSynthesis.getVoices()), 500);
+    });
+
+    const arabicVoice = voices.find((v) => v.lang.startsWith('ar'));
+    if (arabicVoice) utterance.voice = arabicVoice;
+
+    utterance.onend = () => setIsPlaying(false);
+    utterance.onerror = () => setIsPlaying(false);
+    
+    window.speechSynthesis.speak(utterance);
   };
 
-  const handlePlaySlow = () => {
-    if (isPlaying) return;
-    setIsPlaying(true);
-    playSound('click');
-
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(step.arabic);
-      utterance.lang = 'ar-SA';
-      utterance.rate = 0.4;
-      utterance.onend = () => setIsPlaying(false);
-      window.speechSynthesis.speak(utterance);
-    } else {
-      setTimeout(() => setIsPlaying(false), 3000);
-    }
-  };
+  const handlePlayAudio = () => playVoice(0.8);
+  const handlePlaySlow = () => playVoice(0.4);
 
   const handleRecord = () => {
     if (recording) {
