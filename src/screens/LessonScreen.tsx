@@ -400,48 +400,59 @@ export default function LessonScreen({
     }
   }, [step]);
 
-  const playVoice = async (rate: number) => {
-    if (isPlaying || !('speechSynthesis' in window)) {
-      if (!('speechSynthesis' in window)) {
-        // Fallback simulate playing time
-        setIsPlaying(true);
-        playSound('click');
-        setTimeout(() => setIsPlaying(false), rate === 0.4 ? 3000 : 2000);
-      }
-      return;
+  // Cache audio blobs per text+speed to avoid redundant API calls
+  const audioCache = useRef<Map<string, string>>(new Map());
+  const currentAudio = useRef<HTMLAudioElement | null>(null);
+
+  const playVoice = async (speed: number) => {
+    if (isPlaying || !('speechSynthesis' in window)) return;
+    
+    // Stop any currently playing audio from previous API based implementations
+    if (currentAudio.current) {
+      currentAudio.current.pause();
+      currentAudio.current = null;
     }
 
     setIsPlaying(true);
     playSound('click');
-    window.speechSynthesis.cancel(); // Cancel any previous speech
+    window.speechSynthesis.cancel(); // إلغاء أي كلام سابق
 
     const utterance = new SpeechSynthesisUtterance(step.arabic);
     utterance.lang = 'ar-SA';
-    utterance.rate = rate;
+    utterance.rate = speed < 1 ? 0.4 : 0.8;
     utterance.volume = 1;
 
-    // Wait for voices to load
-    const voices = await new Promise<SpeechSynthesisVoice[]>((resolve) => {
+    // Workaround لمعالجة مشكلة التوقف المفاجئ في بعض المتصفحات (مثل Chrome)
+    const keepAlive = setInterval(() => {
+      window.speechSynthesis.pause();
+      window.speechSynthesis.resume();
+    }, 10000);
+
+    // انتظار تحميل الأصوات
+    const voices = await new Promise<SpeechSynthesisVoice[]>(resolve => {
       const v = window.speechSynthesis.getVoices();
       if (v.length) return resolve(v);
-      window.speechSynthesis.onvoiceschanged = () => {
-        resolve(window.speechSynthesis.getVoices());
-      };
-      // Fallback in case onvoiceschanged never fires
+      window.speechSynthesis.onvoiceschanged = () => resolve(window.speechSynthesis.getVoices());
+      // Fallback
       setTimeout(() => resolve(window.speechSynthesis.getVoices()), 500);
     });
 
-    const arabicVoice = voices.find((v) => v.lang.startsWith('ar'));
+    const arabicVoice = voices.find(v => v.lang.startsWith('ar'));
     if (arabicVoice) utterance.voice = arabicVoice;
 
-    utterance.onend = () => setIsPlaying(false);
-    utterance.onerror = () => setIsPlaying(false);
-    
+    utterance.onend = () => {
+      clearInterval(keepAlive);
+      setIsPlaying(false);
+    };
+    utterance.onerror = () => {
+      clearInterval(keepAlive);
+      setIsPlaying(false);
+    };
     window.speechSynthesis.speak(utterance);
   };
 
-  const handlePlayAudio = () => playVoice(0.8);
-  const handlePlaySlow = () => playVoice(0.4);
+  const handlePlayAudio = () => playVoice(1.0);
+  const handlePlaySlow = () => playVoice(0.7);
 
   const handleRecord = () => {
     if (recording) {
