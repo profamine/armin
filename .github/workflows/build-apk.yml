@@ -28,11 +28,12 @@ jobs:
           npm install
           npm install @capacitor/core @capacitor/android @capacitor/cli
 
-      # ── 4. Create capacitor.config.json ──────────────────────────
-      #    (المشروع لا يحتوي على capacitor.config مسبقاً)
-      - name: Create Capacitor Config
+      # ── 4. Replace capacitor.config.ts → capacitor.config.json ───
+      #    cap init يفشل إذا وُجد .ts config، لذا نحذفه ونستبدله بـ JSON
+      - name: Replace Capacitor Config (ts → json)
         run: |
-          cat > capacitor.config.json << 'EOF'
+          rm -f capacitor.config.ts
+          cat > capacitor.config.json << 'CAPEOF'
           {
             "appId": "com.armin.arabic.armenian",
             "appName": "Armin",
@@ -41,7 +42,7 @@ jobs:
               "androidScheme": "https"
             }
           }
-          EOF
+          CAPEOF
 
       # ── 5. Build Vite web app ────────────────────────────────────
       - name: Build Web Project
@@ -56,11 +57,9 @@ jobs:
           distribution: 'zulu'
           java-version: '21'
 
-      # ── 7. Init + Add Android platform ───────────────────────────
-      - name: Init Capacitor & Add Android
-        run: |
-          npx cap init "Armin" "com.armin.arabic.armenian" --web-dir dist
-          npx cap add android
+      # ── 7. Add Android platform (بدون cap init) ──────────────────
+      - name: Add Android Platform
+        run: npx cap add android
 
       # ── 8. Copy web build into Android ───────────────────────────
       - name: Capacitor Sync
