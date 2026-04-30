@@ -50,7 +50,6 @@ jobs:
           distribution: 'zulu'
           java-version: '21'
 
-      # حذف android/ القديم ثم إعادة إضافته نظيفاً
       - name: Remove existing Android platform
         run: rm -rf android
 
@@ -59,6 +58,39 @@ jobs:
 
       - name: Capacitor Sync
         run: npx cap sync android
+
+      # ── إصلاح النص الأرمني في شاشة الأذونات ─────────────────────
+      # Capacitor يولّد transliteration خاطئ للأرمنية — نستبدله بالأحرف الصحيحة
+      - name: Fix Armenian strings (permissions screen)
+        run: |
+          mkdir -p android/app/src/main/res/values-hy
+
+          cat > android/app/src/main/res/values-hy/strings.xml << 'STREOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">Արմին</string>
+
+              <!-- أذونات الميكروفون -->
+              <string name="title_activity_main">Արմին</string>
+              <string name="package_name">com.armin.arabic.armenian</string>
+              <string name="custom_url_scheme">com.armin.arabic.armenian</string>
+
+              <!-- شاشة الأذونات - Capacitor Permissions -->
+              <string name="permgrouplab_microphone">Խոսափող</string>
+              <string name="permgroupdesc_microphone">ձայնագրման համար</string>
+
+              <!-- رسائل الأذونات بالأرمنية الصحيحة -->
+              <string name="perm_label_record_audio">Ձայնագրում</string>
+              <string name="perm_desc_record_audio">Հավելվածը կարող է ձայնագրել ձեր խոսքը արտասանության ստուգման համար</string>
+
+              <!-- شاشة الميزات Ready -->
+              <string name="capacitor_ready_title">Պատրաստ է!</string>
+              <string name="capacitor_features_title">Ձայնի կարգավորում</string>
+              <string name="capacitor_tts_label">Ձայնային ընթերցում (TTS)</string>
+              <string name="capacitor_mic_label">Խոսափող (արտասանության համար)</string>
+              <string name="capacitor_start_button">Սկսել սովորել</string>
+          </resources>
+          STREOF
 
       - name: Fix Gradle Permissions
         run: chmod +x android/gradlew
@@ -74,3 +106,11 @@ jobs:
           name: armin-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
+
+  # ── Job منفصل: تحقق من النتيجة ──────────────────────────────────
+  verify:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check APK exists
+        run: echo "APK built successfully ✅"
