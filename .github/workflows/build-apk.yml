@@ -11,25 +11,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ── 1. Checkout ──────────────────────────────────────────────
       - name: Checkout Source
         uses: actions/checkout@v4
 
-      # ── 2. Node.js ───────────────────────────────────────────────
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'npm'
 
-      # ── 3. Install project deps + Capacitor ──────────────────────
       - name: Install Dependencies
         run: |
           npm install
           npm install @capacitor/core @capacitor/android @capacitor/cli
 
-      # ── 4. Replace capacitor.config.ts → capacitor.config.json ───
-      #    cap init يفشل إذا وُجد .ts config، لذا نحذفه ونستبدله بـ JSON
       - name: Replace Capacitor Config (ts → json)
         run: |
           rm -f capacitor.config.ts
@@ -44,38 +39,35 @@ jobs:
           }
           CAPEOF
 
-      # ── 5. Build Vite web app ────────────────────────────────────
       - name: Build Web Project
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: npm run build
 
-      # ── 6. Java ──────────────────────────────────────────────────
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '21'
 
-      # ── 7. Add Android platform (بدون cap init) ──────────────────
+      # حذف android/ القديم ثم إعادة إضافته نظيفاً
+      - name: Remove existing Android platform
+        run: rm -rf android
+
       - name: Add Android Platform
         run: npx cap add android
 
-      # ── 8. Copy web build into Android ───────────────────────────
       - name: Capacitor Sync
         run: npx cap sync android
 
-      # ── 9. Fix Gradle permissions ─────────────────────────────────
       - name: Fix Gradle Permissions
         run: chmod +x android/gradlew
 
-      # ── 10. Build Debug APK ───────────────────────────────────────
       - name: Assemble Debug APK
         run: |
           cd android
           ./gradlew assembleDebug --no-daemon
 
-      # ── 11. Upload APK as artifact ────────────────────────────────
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
