@@ -33,24 +33,89 @@ import {
 import { useLanguage } from '../contexts/LanguageContext';
 import { lessonsData, type LessonData, type LessonStep, type QuizOption } from '../data/lessons';
 
-// ===== Sound Effects (simulated) =====
-const playSound = (type: 'correct' | 'wrong' | 'complete' | 'click' | 'speak') => {
-  // In a real app, play actual sounds
-  if ('vibrate' in navigator) {
-    switch (type) {
-      case 'correct':
-        navigator.vibrate(50);
-        break;
-      case 'wrong':
-        navigator.vibrate([100, 50, 100]);
-        break;
-      case 'complete':
-        navigator.vibrate([50, 30, 50, 30, 50]);
-        break;
-      default:
-        navigator.vibrate(20);
+// ===== Sound Effects (Real Web Audio + Vibration) =====
+const lazyAudioContext = (() => {
+  let ctx: AudioContext | null = null;
+  return () => {
+    if (!ctx) {
+      ctx = new (window.AudioContext || (window as Record<string, any>).webkitAudioContext)();
     }
-  }
+    return ctx;
+  };
+})();
+
+const playSound = (type: 'correct' | 'wrong' | 'complete' | 'click' | 'speak') => {
+  try {
+    if ('vibrate' in navigator) {
+      switch (type) {
+        case 'correct': navigator.vibrate(50); break;
+        case 'wrong': navigator.vibrate([100, 50, 100]); break;
+        case 'complete': navigator.vibrate([50, 30, 50, 30, 50]); break;
+        default: navigator.vibrate(20);
+      }
+    }
+  } catch (e) {}
+
+  try {
+    const ctx = lazyAudioContext();
+    if (ctx.state === 'suspended') ctx.resume();
+    
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'correct') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, t); // Do5
+      osc.frequency.setValueAtTime(659.25, t + 0.1); // Mi5
+      osc.frequency.setValueAtTime(783.99, t + 0.2); // Sol5
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.3, t + 0.05);
+      gain.gain.linearRampToValueAtTime(0, t + 0.3);
+      osc.start(t);
+      osc.stop(t + 0.3);
+    } else if (type === 'wrong') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(300, t);
+      osc.frequency.linearRampToValueAtTime(150, t + 0.3);
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.3, t + 0.05);
+      gain.gain.linearRampToValueAtTime(0, t + 0.3);
+      osc.start(t);
+      osc.stop(t + 0.3);
+    } else if (type === 'complete') {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(440, t);
+      osc.frequency.setValueAtTime(554.37, t + 0.15);
+      osc.frequency.setValueAtTime(659.25, t + 0.3);
+      osc.frequency.setValueAtTime(880, t + 0.45);
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.15, t + 0.05);
+      gain.gain.linearRampToValueAtTime(0, t + 0.6);
+      osc.start(t);
+      osc.stop(t + 0.6);
+    } else if (type === 'click') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, t);
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.1, t + 0.02);
+      gain.gain.linearRampToValueAtTime(0, t + 0.08);
+      osc.start(t);
+      osc.stop(t + 0.08);
+    } else if (type === 'speak') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600, t);
+      osc.frequency.setValueAtTime(800, t + 0.1);
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.1, t + 0.05);
+      gain.gain.linearRampToValueAtTime(0, t + 0.2);
+      osc.start(t);
+      osc.stop(t + 0.2);
+    }
+  } catch (e) {}
 };
 
 // ===== Animated Counter Component =====
@@ -414,75 +479,132 @@ export default function LessonScreen({
   const currentAudio = useRef<HTMLAudioElement | null>(null);
 
   const playVoice = (speed: number) => {
-    if (isPlaying || !('speechSynthesis' in window)) return;
+    if (isPlaying) return;
 
     if (currentAudio.current) {
       currentAudio.current.pause();
       currentAudio.current = null;
     }
-    window.speechSynthesis.cancel();
 
     setIsPlaying(true);
     playSound('click');
 
-    const utterance = new SpeechSynthesisUtterance(step.arabic);
-    utterance.lang = 'ar-SA';
-    utterance.rate = speed < 1 ? 0.4 : 0.8;
-    utterance.pitch = 1;
-    utterance.volume = 1;
+    const cacheKey = `${step.arabic}__${speed}`;
 
-    // Voix déjà préchargées par le useEffect → appel synchrone
-    const voices = window.speechSynthesis.getVoices();
-    const arabicVoice = voices.find(v => v.lang.startsWith('ar'));
-    if (arabicVoice) utterance.voice = arabicVoice;
+    const fallbackToServerTTS = async () => {
+      try {
+        if ('speechSynthesis' in window) {
+           window.speechSynthesis.cancel();
+        }
+        
+        let blobUrl = audioCache.current.get(cacheKey);
 
-    const keepAlive = setInterval(() => {
-      if (window.speechSynthesis.speaking) {
-        window.speechSynthesis.pause();
-        window.speechSynthesis.resume();
-      } else {
-        clearInterval(keepAlive);
-      }
-    }, 10000);
+        if (!blobUrl) {
+          const res = await fetch(`/api/tts?text=${encodeURIComponent(step.arabic)}&lang=ar`);
+          if (!res.ok) throw new Error(`TTS error: ${res.status}`);
 
-    utterance.onend = () => {
-      clearInterval(keepAlive);
-      setIsPlaying(false);
-    };
+          const blob = await res.blob();
+          blobUrl = URL.createObjectURL(blob);
+          audioCache.current.set(cacheKey, blobUrl);
+        }
 
-    utterance.onerror = (e) => {
-      clearInterval(keepAlive);
-      setIsPlaying(false);
-      // Fallback : réessayer sans voix spécifique
-      if (e.error === 'voice-unavailable' || e.error === 'synthesis-unavailable') {
-        const fallback = new SpeechSynthesisUtterance(step.arabic);
-        fallback.lang = 'ar';
-        fallback.rate = speed < 1 ? 0.4 : 0.8;
-        fallback.onend  = () => setIsPlaying(false);
-        fallback.onerror = () => setIsPlaying(false);
-        window.speechSynthesis.speak(fallback);
-        setIsPlaying(true);
+        const audio = new Audio(blobUrl);
+        currentAudio.current = audio;
+        audio.playbackRate = speed;
+        audio.onended = () => setIsPlaying(false);
+        audio.onerror = () => setIsPlaying(false);
+        audio.play();
+      } catch (err) {
+        console.error('Server TTS fallback failed:', err);
+        setIsPlaying(false);
       }
     };
 
-    // ✅ speak() appelé directement — pas d'await — fonctionne sur mobile
-    window.speechSynthesis.speak(utterance);
+    if (!('speechSynthesis' in window)) {
+      fallbackToServerTTS();
+      return;
+    }
 
-    // Si les voix ne sont pas encore chargées (cas rare), retry
-    if (!voices.length) {
+    try {
       window.speechSynthesis.cancel();
-      setIsPlaying(false);
-      window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.onvoiceschanged = null;
-        setTimeout(() => playVoice(speed), 100);
+      const utterance = new SpeechSynthesisUtterance(step.arabic);
+      utterance.lang = 'ar-SA';
+      utterance.rate = speed < 1 ? 0.4 : 0.8;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+
+      const voices = window.speechSynthesis.getVoices();
+      const arabicVoice = voices.find(v => v.lang.startsWith('ar'));
+      
+      // Condition 1: Aucune voix arabe disponible (sauf si les voix ne sont pas encore chargées)
+      if (!arabicVoice && voices.length > 0) {
+        fallbackToServerTTS();
+        return;
+      }
+
+      if (arabicVoice) utterance.voice = arabicVoice;
+
+      let fallbackTriggered = false;
+
+      // Condition 2: Timeout après 3 secondes (si onstart ne se déclenche pas ou bug)
+      const timeoutMsg = setTimeout(() => {
+        if (!fallbackTriggered) {
+          fallbackTriggered = true;
+          fallbackToServerTTS();
+        }
+      }, 3000);
+
+      const keepAlive = setInterval(() => {
+        if (window.speechSynthesis.speaking) {
+          window.speechSynthesis.pause();
+          window.speechSynthesis.resume();
+        } else {
+          clearInterval(keepAlive);
+        }
+      }, 10000);
+
+      utterance.onstart = () => {
+        clearTimeout(timeoutMsg);
       };
+
+      utterance.onend = () => {
+        clearTimeout(timeoutMsg);
+        clearInterval(keepAlive);
+        if (!fallbackTriggered) {
+          setIsPlaying(false);
+        }
+      };
+
+      // Condition 3: Erreur de synthèse
+      utterance.onerror = (e) => {
+        clearTimeout(timeoutMsg);
+        clearInterval(keepAlive);
+        if (fallbackTriggered) return;
+        
+        fallbackTriggered = true;
+        fallbackToServerTTS();
+      };
+
+      window.speechSynthesis.speak(utterance);
+
+      // Si les voix ne sont pas encore chargées, le timeout couvrira l'échec 
+      // ou bien l'évènement onvoiceschanged nous informera.
+      if (!voices.length) {
+        window.speechSynthesis.onvoiceschanged = () => {
+          // just let it play if it can, otherwise timeout will fallback
+        };
+      }
+    } catch(err) {
+      fallbackToServerTTS();
     }
   };
 
   const handlePlayAudio = () => playVoice(1.0);
   const handlePlaySlow = () => playVoice(0.7);
 
-  const handleRecord = () => {
+  const recognitionRef = useRef<any>(null);
+
+  const handleSimulatedRecord = () => {
     if (recording) {
       setRecording(false);
       playSound('click');
@@ -518,6 +640,93 @@ export default function LessonScreen({
       setRecording(true);
       setFeedback(null);
       playSound('speak');
+    }
+  };
+
+  const handleRecord = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      return handleSimulatedRecord();
+    }
+
+    if (recording) {
+      // User tapped to stop recording early
+      setRecording(false);
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      playSound('click');
+      return;
+    }
+
+    setRecording(true);
+    setFeedback(null);
+    playSound('speak');
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      recognition.lang = 'ar-SA';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        const confidence = event.results[0][0].confidence;
+        
+        const normalizedTranscript = normalize(transcript);
+        const expected = normalize(step.arabic);
+        
+        // Exact match or very high confidence => Excellent
+        if (normalizedTranscript === expected || confidence > 0.70) {
+          setFeedback('excellent');
+          setXp((prev) => prev + 15);
+          setStreak((prev) => prev + 1);
+          setCorrectAnswers((prev) => prev + 1);
+          playSound('correct');
+          if (streak > 0 && (streak + 1) % 3 === 0) {
+            setShowStreakBonus(true);
+            setXp((prev) => prev + 5);
+            setTimeout(() => setShowStreakBonus(false), 2000);
+          }
+        } else if (confidence > 0.3) {
+          setFeedback('good');
+          setXp((prev) => prev + 8);
+          setCorrectAnswers((prev) => prev + 1);
+          playSound('correct');
+        } else {
+          setFeedback('poor');
+          setStreak(0);
+          playSound('wrong');
+          setShakeWrong(true);
+          setTimeout(() => setShakeWrong(false), 500);
+        }
+        setTotalAnswered((prev) => prev + 1);
+        setRecording(false);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error);
+        if (event.error !== 'aborted') {
+            setFeedback('poor');
+            setStreak(0);
+            playSound('wrong');
+            setShakeWrong(true);
+            setTimeout(() => setShakeWrong(false), 500);
+            setTotalAnswered((prev) => prev + 1);
+        }
+        setRecording(false);
+      };
+
+      recognition.onend = () => {
+        setRecording(false);
+      };
+
+      recognition.start();
+    } catch (err) {
+      console.error(err);
+      handleSimulatedRecord();
     }
   };
 
