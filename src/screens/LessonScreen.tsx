@@ -491,29 +491,26 @@ export default function LessonScreen({
 
     const cacheKey = `${step.arabic}__${speed}`;
 
-    const fallbackToServerTTS = async () => {
+    const fallbackToServerTTS = () => {
       try {
         if ('speechSynthesis' in window) {
            window.speechSynthesis.cancel();
         }
         
-        let blobUrl = audioCache.current.get(cacheKey);
-
-        if (!blobUrl) {
-          const res = await fetch(`/api/tts?text=${encodeURIComponent(step.arabic)}&lang=ar`);
-          if (!res.ok) throw new Error(`TTS error: ${res.status}`);
-
-          const blob = await res.blob();
-          blobUrl = URL.createObjectURL(blob);
-          audioCache.current.set(cacheKey, blobUrl);
-        }
-
-        const audio = new Audio(blobUrl);
+        const audioUrl = `/api/tts?text=${encodeURIComponent(step.arabic)}&lang=ar`;
+        const audio = new Audio(audioUrl);
         currentAudio.current = audio;
         audio.playbackRate = speed;
         audio.onended = () => setIsPlaying(false);
         audio.onerror = () => setIsPlaying(false);
-        audio.play();
+        
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(err => {
+            console.error('Server TTS fallback failed:', err);
+            setIsPlaying(false);
+          });
+        }
       } catch (err) {
         console.error('Server TTS fallback failed:', err);
         setIsPlaying(false);

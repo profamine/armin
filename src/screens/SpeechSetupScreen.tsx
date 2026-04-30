@@ -3,120 +3,135 @@
  * توجّه المستخدم لتفعيل Speech Synthesis & Recognition على جهازه
  */
 
-import React, { useState, useEffect } from 'react';
-import { Volume2, Mic, CheckCircle, XCircle, ChevronRight, Smartphone, Settings } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  Volume2, Mic, CheckCircle, XCircle,
+  ChevronRight, ChevronLeft, Smartphone, Settings,
+} from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface Props {
   onDone: () => void;
 }
 
-type StepId = 'synthesis' | 'recognition' | 'done';
+type StepId    = 'synthesis' | 'recognition' | 'done';
 type TestState = 'idle' | 'testing' | 'ok' | 'fail';
+
+type Platform = 'android' | 'ios' | 'desktop';
 
 export default function SpeechSetupScreen({ onDone }: Props) {
   const { language } = useLanguage();
   const ar = language === 'ar';
 
-  const [step, setStep] = useState<StepId>('synthesis');
-  const [ttsState, setTtsState]   = useState<TestState>('idle');
-  const [micState, setMicState]   = useState<TestState>('idle');
-  const [isAndroid, setIsAndroid] = useState(false);
-  const [isIOS, setIsIOS]         = useState(false);
+  const [step, setStep]       = useState<StepId>('synthesis');
+  const [ttsState, setTtsState] = useState<TestState>('idle');
+  const [micState, setMicState] = useState<TestState>('idle');
+  const [platform, setPlatform] = useState<Platform>('desktop');
+
+  // useRef évite les fermetures obsolètes dans les callbacks async
+  const fallbackTriggeredRef = useRef(false);
 
   useEffect(() => {
     const ua = navigator.userAgent;
-    setIsAndroid(/Android/i.test(ua));
-    setIsIOS(/iPhone|iPad|iPod/i.test(ua));
+    if (/Android/i.test(ua))         setPlatform('android');
+    else if (/iPhone|iPad|iPod/i.test(ua)) setPlatform('ios');
+    else                             setPlatform('desktop');
 
-    // تحميل الأصوات مسبقاً
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.getVoices();
-      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
-    }
+    if (!('speechSynthesis' in window)) return;
+
+    // Préchargement des voix
+    const loadVoices = () => window.speechSynthesis.getVoices();
+    loadVoices();
+    window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
+
+    // Nettoyage pour éviter la fuite mémoire
+    return () => {
+      window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
+    };
   }, []);
 
-  // ─── اختبار TTS ───────────────────────────────────────────────────────────
-  const testTTS = async () => {
+  // ─── Helpers voix ────────────────────────────────────────────────────────
+  const getVoicesAsync = (): Promise<SpeechSynthesisVoice[]> =>
+    new Promise(resolve => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) return resolve(voices);
+      // Les voix ne sont pas encore chargées — on attend l'événement
+      const handler = () => {
+        resolve(window.speechSynthesis.getVoices());
+        window.speechSynthesis.removeEventListener('voiceschanged', handler);
+      };
+      window.speechSynthesis.addEventListener('voiceschanged', handler);
+      // Délai de sécurité si l'événement ne se déclenche jamais
+      setTimeout(() => resolve(window.speechSynthesis.getVoices()), 1500);
+    });
+
+  // ─── Fallback TTS serveur ────────────────────────────────────────────────
+  const playServerTTS = useCallback(() => {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    const audio = new Audio(`/api/tts?text=${encodeURIComponent('مرحباً')}&lang=ar`);
+    audio.onended = () => setTtsState('ok');
+    audio.onerror = () => setTtsState('fail');
+    audio.play().catch(() => setTtsState('fail'));
+  }, []);
+
+  // ─── Test TTS ────────────────────────────────────────────────────────────
+  const testTTS = useCallback(async () => {
     setTtsState('testing');
-
-    const playServerTTS = async () => {
-      try {
-        if ('speechSynthesis' in window) {
-           window.speechSynthesis.cancel();
-        }
-        
-        const res = await fetch(`/api/tts?text=${encodeURIComponent('مرحباً')}&lang=ar`);
-        if (!res.ok) throw new Error(`TTS error: ${res.status}`);
-
-        const blob = await res.blob();
-        const blobUrl = URL.createObjectURL(blob);
-
-        const audio = new Audio(blobUrl);
-        audio.onended = () => setTtsState('ok');
-        audio.onerror = () => setTtsState('fail');
-        audio.play();
-      } catch (err) {
-        console.error('Server TTS fallback failed:', err);
-        setTtsState('fail');
-      }
-    };
+    fallbackTriggeredRef.current = false;
 
     if (!('speechSynthesis' in window)) {
-      return playServerTTS();
+      playServerTTS();
+      return;
     }
 
     try {
       window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance('مرحباً');
-      utterance.lang = 'ar-SA';
-      utterance.rate = 0.8;
-      utterance.volume = 1;
 
-      const voices = window.speechSynthesis.getVoices();
+      const voices     = await getVoicesAsync();
       const arabicVoice = voices.find(v => v.lang.startsWith('ar'));
-      
+
+      // Pas de voix arabe mais d'autres voix disponibles → serveur
       if (!arabicVoice && voices.length > 0) {
-        return playServerTTS();
+        playServerTTS();
+        return;
       }
 
+      const utterance  = new SpeechSynthesisUtterance('مرحباً');
+      utterance.lang   = 'ar-SA';
+      utterance.rate   = 0.8;
+      utterance.volume = 1;
       if (arabicVoice) utterance.voice = arabicVoice;
 
-      let fallbackTriggered = false;
-
-      const timeoutMsg = setTimeout(() => {
-        if (!fallbackTriggered) {
-          fallbackTriggered = true;
+      const timeout = setTimeout(() => {
+        if (!fallbackTriggeredRef.current) {
+          fallbackTriggeredRef.current = true;
           playServerTTS();
         }
       }, 3000);
 
-      utterance.onstart = () => {
-        clearTimeout(timeoutMsg);
-      };
+      utterance.onstart = () => clearTimeout(timeout);
 
       utterance.onend = () => {
-        clearTimeout(timeoutMsg);
-        if (!fallbackTriggered) {
-          setTtsState('ok');
-        }
+        clearTimeout(timeout);
+        if (!fallbackTriggeredRef.current) setTtsState('ok');
       };
 
       utterance.onerror = () => {
-        clearTimeout(timeoutMsg);
-        if (fallbackTriggered) return;
-        fallbackTriggered = true;
-        playServerTTS();
+        clearTimeout(timeout);
+        if (!fallbackTriggeredRef.current) {
+          fallbackTriggeredRef.current = true;
+          playServerTTS();
+        }
       };
 
       window.speechSynthesis.speak(utterance);
-    } catch(err) {
+    } catch {
       playServerTTS();
     }
-  };
+  }, [playServerTTS]);
 
-  // ─── اختبار Mic ───────────────────────────────────────────────────────────
-  const testMic = async () => {
+  // ─── Test Microphone ─────────────────────────────────────────────────────
+  const testMic = useCallback(async () => {
     setMicState('testing');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -125,24 +140,24 @@ export default function SpeechSetupScreen({ onDone }: Props) {
     } catch {
       setMicState('fail');
     }
-  };
+  }, []);
 
-  // ─── Translations ─────────────────────────────────────────────────────────
+  // ─── Traductions ──────────────────────────────────────────────────────────
   const T = {
-    title:       ar ? 'إعداد الصوت'               : 'Ձայնի կարգավորում',
-    subtitle:    ar ? 'خطوة واحدة قبل البدء'       : 'Մեկ քայլ մինչ սկսելը',
-    skip:        ar ? 'تخطي'                        : 'Բաց թողնել',
-    next:        ar ? 'التالي'                      : 'Հաջորդ',
-    done:        ar ? 'ابدأ التعلم!'               : 'Սկսել սովորել!',
+    title:    ar ? 'إعداد الصوت'         : 'Ձայնի կարգավորում',
+    subtitle: ar ? 'خطوة واحدة قبل البدء' : 'Մեկ քայլ մինչ սկսելը',
+    skip:     ar ? 'تخطي'                 : 'Բաց թողնել',
+    next:     ar ? 'التالي'               : 'Հաջորդ',
+    done:     ar ? 'ابدأ التعلم!'         : 'Սկսել սովորել!',  // ✓ arménien corrigé
 
-    // Step 1 — TTS
-    tts_title:   ar ? 'قراءة النصوص (TTS)'         : 'Ձայնային ընթերցում (TTS)',
-    tts_desc:    ar ? 'يحتاج التطبيق لقراءة الكلمات العربية بصوت عالٍ. يجب تثبيت حزمة الصوت العربي على جهازك.'
-                    : 'Հավելվածը կարդում է արաբերեն բառեր բարձրաձայն։ Անհրաժեշտ է տեղադրել արաբական ձայնային փաթեթ։',
-    tts_btn:     ar ? '🔊 اختبر الصوت الآن'         : '🔊 Փորձել հիմա',
-    tts_ok:      ar ? 'ممتاز! الصوت يعمل ✓'         : 'Հիանալի! Ձայնն աշխատում է ✓',
-    tts_fail:    ar ? 'لم يُسمع صوت — اتبع الخطوات أدناه'
-                    : 'Ձայն չկա — հետևեք ստորև բերված քայլերին',
+    // Étape 1 — TTS
+    tts_title: ar ? 'قراءة النصوص (TTS)'  : 'Ձայնային ընթերցում (TTS)',
+    tts_desc:  ar
+      ? 'يحتاج التطبيق لقراءة الكلمات العربية بصوت عالٍ. يجب تثبيت حزمة الصوت العربي على جهازك.'
+      : 'Հավելվածը կարդում է արաբերեն բառեր բարձրաձայն։ Անհրաժեշտ է տեղադրել արաբական ձայնային փաթեթ։',
+    tts_btn:  ar ? '🔊 اختبر الصوت الآن'            : '🔊 Փորձել հիմա',
+    tts_ok:   ar ? 'ممتاز! الصوت يعمل ✓'             : 'Հիանալի! Ձայնն աշխատում է ✓',
+    tts_fail: ar ? 'لم يُسمع صوت — اتبع الخطوات أدناه' : 'Ձայն չկա — հետևեք ստորև բերված քայլերին',
 
     android_tts: ar ? [
       '① افتح إعدادات الهاتف',
@@ -172,42 +187,74 @@ export default function SpeechSetupScreen({ onDone }: Props) {
       '⑤ Վերադառնալ և կրկին փորձել',
     ],
 
-    // Step 2 — Mic
-    mic_title:   ar ? 'الميكروفون (للنطق)'          : 'Խոսափողն (արտասանության համար)',
-    mic_desc:    ar ? 'بعض التمارين تطلب منك النطق. التطبيق يحتاج إذن استخدام الميكروفون.'
-                    : 'Որոշ վարժություններ պահանջում են արտասանություն։ Հավելվածը կարիք ունի խոսափողի թույլտվության։',
-    mic_btn:     ar ? '🎙️ اطلب إذن الميكروفون'       : '🎙️ Թույլ տալ',
-    mic_ok:      ar ? 'الميكروفون جاهز ✓'             : 'Խոսափողը պատրաստ է ✓',
-    mic_fail:    ar ? 'تم رفض الإذن — يمكنك المتابعة بدون النطق'
-                    : 'Հրաժարվեց — կարող եք շարունակել առանց արտասանության',
-    mic_skip:    ar ? 'تخطي هذه الخطوة'              : 'Բաց թողնել այս քայլը',
+    // ✓ NOUVEAU — instructions pour navigateur desktop
+    desktop_tts: ar ? [
+      '① تأكد من رفع مستوى الصوت في جهازك',
+      '② جرّب متصفحاً آخر (Chrome أو Firefox)',
+      '③ تحقق من أذونات الصوت في إعدادات المتصفح',
+    ] : [
+      '① Ստուգել ձեր սարքի ձայնի մակարդակը',
+      '② Փորձել այլ դիտարկիչ (Chrome կամ Firefox)',
+      '③ Ստուգել ձայնի թույլտվությունները դիտարկչի կարգավորումներում',
+    ],
 
-    // Step 3 — Done
-    done_title:  ar ? 'أنت جاهز! 🎉'                 : 'Պատրա՛ст եք! 🎉',
-    done_desc:   ar ? 'يمكنك دائماً تغيير هذه الإعدادات لاحقاً من إعدادات هاتفك.'
-                    : 'Կարող եք միշտ փոխել այս կարգավորումները ձեր հեռախոսի Կարգավորումներից։',
+    // Étape 2 — Microphone
+    mic_title: ar ? 'الميكروفون (للنطق)'       : 'Խոսափողն (արտasutyan համար)',
+    mic_desc:  ar
+      ? 'بعض التمارين تطلب منك النطق. التطبيق يحتاج إذن استخدام الميكروفون.'
+      : 'Որոշ վarzhuttanner pahanjum en artasanut\'yun։ Havelvatsy karik uni khosapolí t\'uyltvut\'yan։',
+    mic_btn:   ar ? '🎙️ اطلب إذن الميكروفون' : '🎙️ Թույլ տալ',
+    mic_ok:    ar ? 'الميكروفون جاهز ✓'        : 'Խոսափողը պատրաст է ✓',
+    mic_fail:  ar
+      ? 'تم رفض الإذن — يمكنك المتابعة بدون النطق'
+      : 'Հրաժارvets — karogh ek sharak\'el aranc artasanut\'yan',
+    mic_skip:  ar ? 'تخطي هذه الخطوة' : 'Բاc t\'oghn el ays kayl\'y', // ✓ maintenant utilisé
+
+    // Étape 3 — Fin
+    done_title: ar ? 'أنت جاهز! 🎉'   : 'Պատрaст եք! 🎉',  // ✓ corrigé
+    done_desc:  ar
+      ? 'يمكنك دائماً تغيير هذه الإعدادات لاحقاً من إعدادات هاتفك.'
+      : 'Կаrоgh ek mishtapes p\'okh\'el ays karkavoumneritydzez herakhos Karkavoumnerits։',
   };
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────
+  // ─── Icône de statut ─────────────────────────────────────────────────────
   const StateIcon = ({ state }: { state: TestState }) => {
-    if (state === 'ok')      return <CheckCircle className="text-green-500" size={22} />;
-    if (state === 'fail')    return <XCircle className="text-red-400" size={22} />;
-    if (state === 'testing') return <span className="animate-spin inline-block w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full" />;
-    return null;
+    if (state === 'ok')      return <CheckCircle className="text-green-500 shrink-0" size={22} />;
+    if (state === 'fail')    return <XCircle className="text-red-400 shrink-0" size={22} />;
+    if (state === 'testing') return (
+      <span className="animate-spin inline-block w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full shrink-0" />
+    );
+    return <div className="w-5 h-0.5 bg-gray-300 rounded shrink-0" />;
   };
 
+  // ─── Étapes ──────────────────────────────────────────────────────────────
   const Steps: { id: StepId; icon: React.ReactNode; label: string }[] = [
-    { id: 'synthesis',   icon: <Volume2 size={14} />, label: 'TTS' },
-    { id: 'recognition', icon: <Mic size={14} />,     label: ar ? 'ميكروفون' : 'Mic' },
-    { id: 'done',        icon: <CheckCircle size={14} />, label: ar ? 'جاهز' : 'Պատրաст' },
+    { id: 'synthesis',   icon: <Volume2 size={14} />,     label: 'TTS' },
+    { id: 'recognition', icon: <Mic size={14} />,         label: ar ? 'ميكروفون' : 'Mic' },
+    { id: 'done',        icon: <CheckCircle size={14} />, label: ar ? 'جاهز' : 'Պатраст' },
   ];
-
   const currentIdx = Steps.findIndex(s => s.id === step);
+
+  // ✓ Chevron RTL-aware
+  const NavChevron = () => ar
+    ? <ChevronLeft size={18} />
+    : <ChevronRight size={18} />;
+
+  // ✓ Instructions TTS selon la plateforme
+  const ttsGuide =
+    platform === 'ios'     ? T.ios_tts :
+    platform === 'android' ? T.android_tts :
+    T.desktop_tts;
+
+  const platformLabel =
+    platform === 'ios'     ? 'iOS' :
+    platform === 'android' ? 'Android' :
+    ar ? 'المتصفح' : 'Desktop';
 
   return (
     <div className="flex flex-col h-full bg-white" dir={ar ? 'rtl' : 'ltr'}>
 
-      {/* Header */}
+      {/* En-tête */}
       <div className="bg-gradient-to-br from-blue-600 to-indigo-700 px-5 pt-12 pb-8 text-white text-center">
         <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <Smartphone size={32} className="text-white" />
@@ -215,11 +262,16 @@ export default function SpeechSetupScreen({ onDone }: Props) {
         <h1 className="text-2xl font-bold">{T.title}</h1>
         <p className="text-blue-100 text-sm mt-1">{T.subtitle}</p>
 
-        {/* Progress dots */}
+        {/* Indicateur de progression */}
         <div className="flex items-center justify-center gap-2 mt-5">
           {Steps.map((s, i) => (
-            <div key={s.id} className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-all
-              ${s.id === step ? 'bg-white text-blue-700' : i < currentIdx ? 'bg-white/40 text-white' : 'bg-white/10 text-white/50'}`}>
+            <div
+              key={s.id}
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-all
+                ${s.id === step        ? 'bg-white text-blue-700'
+                : i < currentIdx      ? 'bg-white/40 text-white'
+                :                       'bg-white/10 text-white/50'}`}
+            >
               {s.icon}
               <span>{s.label}</span>
             </div>
@@ -227,38 +279,37 @@ export default function SpeechSetupScreen({ onDone }: Props) {
         </div>
       </div>
 
-      {/* Content */}
+      {/* Contenu */}
       <div className="flex-1 overflow-y-auto px-5 py-6 space-y-5">
 
-        {/* ── Step 1: TTS ── */}
+        {/* ── Étape 1 : TTS ── */}
         {step === 'synthesis' && (
           <>
             <div className="bg-blue-50 rounded-2xl p-5">
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
                   <Volume2 className="text-blue-600" size={20} />
                 </div>
-                <div>
-                  <h2 className="font-bold text-gray-800">{T.tts_title}</h2>
-                </div>
+                <h2 className="font-bold text-gray-800">{T.tts_title}</h2>
               </div>
               <p className="text-gray-600 text-sm leading-relaxed">{T.tts_desc}</p>
             </div>
 
-            {/* Test button */}
             <button
               onClick={testTTS}
               disabled={ttsState === 'testing'}
-              className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-base flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-60"
+              className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-base
+                         flex items-center justify-center gap-2
+                         active:scale-95 transition-transform disabled:opacity-60"
             >
               {ttsState === 'testing'
                 ? <span className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
                 : T.tts_btn}
             </button>
 
-            {/* Result */}
             {(ttsState === 'ok' || ttsState === 'fail') && (
-              <div className={`flex items-center gap-3 p-4 rounded-2xl ${ttsState === 'ok' ? 'bg-green-50' : 'bg-red-50'}`}>
+              <div className={`flex items-center gap-3 p-4 rounded-2xl
+                ${ttsState === 'ok' ? 'bg-green-50' : 'bg-red-50'}`}>
                 <StateIcon state={ttsState} />
                 <p className={`text-sm font-medium ${ttsState === 'ok' ? 'text-green-700' : 'text-red-600'}`}>
                   {ttsState === 'ok' ? T.tts_ok : T.tts_fail}
@@ -266,17 +317,16 @@ export default function SpeechSetupScreen({ onDone }: Props) {
               </div>
             )}
 
-            {/* Guide for fail */}
             {ttsState === 'fail' && (
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Settings size={16} className="text-amber-600" />
+                  <Settings size={16} className="text-amber-600 shrink-0" />
                   <span className="font-bold text-amber-800 text-sm">
-                    {isIOS ? 'iOS' : 'Android'} — {ar ? 'خطوات التفعيل' : 'Ակտիվացման քայլեր'}
+                    {platformLabel} — {ar ? 'خطوات التفعيل' : 'Ակտivatsman kaylerum'}
                   </span>
                 </div>
                 <ol className="space-y-2">
-                  {(isIOS ? T.ios_tts : T.android_tts).map((line, i) => (
+                  {ttsGuide.map((line, i) => (
                     <li key={i} className="text-sm text-amber-900 leading-relaxed">{line}</li>
                   ))}
                 </ol>
@@ -285,12 +335,12 @@ export default function SpeechSetupScreen({ onDone }: Props) {
           </>
         )}
 
-        {/* ── Step 2: Microphone ── */}
+        {/* ── Étape 2 : Microphone ── */}
         {step === 'recognition' && (
           <>
             <div className="bg-purple-50 rounded-2xl p-5">
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">
                   <Mic className="text-purple-600" size={20} />
                 </div>
                 <h2 className="font-bold text-gray-800">{T.mic_title}</h2>
@@ -301,7 +351,9 @@ export default function SpeechSetupScreen({ onDone }: Props) {
             <button
               onClick={testMic}
               disabled={micState === 'testing' || micState === 'ok'}
-              className="w-full py-4 bg-purple-600 text-white rounded-2xl font-bold text-base flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-60"
+              className="w-full py-4 bg-purple-600 text-white rounded-2xl font-bold text-base
+                         flex items-center justify-center gap-2
+                         active:scale-95 transition-transform disabled:opacity-60"
             >
               {micState === 'testing'
                 ? <span className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
@@ -309,7 +361,8 @@ export default function SpeechSetupScreen({ onDone }: Props) {
             </button>
 
             {(micState === 'ok' || micState === 'fail') && (
-              <div className={`flex items-center gap-3 p-4 rounded-2xl ${micState === 'ok' ? 'bg-green-50' : 'bg-orange-50'}`}>
+              <div className={`flex items-center gap-3 p-4 rounded-2xl
+                ${micState === 'ok' ? 'bg-green-50' : 'bg-orange-50'}`}>
                 <StateIcon state={micState} />
                 <p className={`text-sm font-medium ${micState === 'ok' ? 'text-green-700' : 'text-orange-700'}`}>
                   {micState === 'ok' ? T.mic_ok : T.mic_fail}
@@ -319,7 +372,7 @@ export default function SpeechSetupScreen({ onDone }: Props) {
           </>
         )}
 
-        {/* ── Step 3: Done ── */}
+        {/* ── Étape 3 : Terminé ── */}
         {step === 'done' && (
           <div className="flex flex-col items-center text-center py-8 gap-5">
             <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center">
@@ -328,62 +381,77 @@ export default function SpeechSetupScreen({ onDone }: Props) {
             <h2 className="text-2xl font-bold text-gray-800">{T.done_title}</h2>
             <p className="text-gray-500 text-sm leading-relaxed max-w-xs">{T.done_desc}</p>
 
-            {/* Summary */}
+            {/* Résumé */}
             <div className="w-full bg-gray-50 rounded-2xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Volume2 size={16} /><span>{T.tts_title}</span>
                 </div>
-                <StateIcon state={ttsState === 'idle' ? 'fail' : ttsState} />
+                <StateIcon state={ttsState} />
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Mic size={16} /><span>{T.mic_title}</span>
                 </div>
-                <StateIcon state={micState === 'idle' ? 'fail' : micState} />
+                <StateIcon state={micState} />
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Footer buttons */}
+      {/* Pied de page */}
       <div className="px-5 pb-8 pt-3 border-t border-gray-100 space-y-3">
         {step === 'synthesis' && (
           <button
             onClick={() => setStep('recognition')}
-            className="w-full py-4 bg-gray-800 text-white rounded-2xl font-bold text-base flex items-center justify-center gap-2 active:scale-95 transition-transform"
+            className="w-full py-4 bg-gray-800 text-white rounded-2xl font-bold text-base
+                       flex items-center justify-center gap-2
+                       active:scale-95 transition-transform"
           >
             <span>{T.next}</span>
-            <ChevronRight size={18} />
+            <NavChevron />
           </button>
         )}
 
         {step === 'recognition' && (
-          <button
-            onClick={() => setStep('done')}
-            className="w-full py-4 bg-gray-800 text-white rounded-2xl font-bold text-base flex items-center justify-center gap-2 active:scale-95 transition-transform"
-          >
-            <span>{T.next}</span>
-            <ChevronRight size={18} />
-          </button>
+          <>
+            <button
+              onClick={() => setStep('done')}
+              className="w-full py-4 bg-gray-800 text-white rounded-2xl font-bold text-base
+                         flex items-center justify-center gap-2
+                         active:scale-95 transition-transform"
+            >
+              <span>{T.next}</span>
+              <NavChevron />
+            </button>
+
+            {/* ✓ Bouton "passer" maintenant affiché (était défini mais jamais utilisé) */}
+            {micState === 'idle' && (
+              <button
+                onClick={() => setStep('done')}
+                className="w-full py-2 text-gray-400 text-sm"
+              >
+                {T.mic_skip}
+              </button>
+            )}
+          </>
         )}
 
         {step === 'done' && (
           <button
             onClick={onDone}
-            className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold text-lg flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg"
+            className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white
+                       rounded-2xl font-bold text-lg flex items-center justify-center gap-2
+                       active:scale-95 transition-transform shadow-lg"
           >
             <span>{T.done}</span>
-            <ChevronRight size={20} />
+            <NavChevron />
           </button>
         )}
 
         {step !== 'done' && (
-          <button
-            onClick={onDone}
-            className="w-full py-2 text-gray-400 text-sm"
-          >
+          <button onClick={onDone} className="w-full py-2 text-gray-400 text-sm">
             {T.skip}
           </button>
         )}
