@@ -37,33 +37,82 @@ export default function SpeechSetupScreen({ onDone }: Props) {
   }, []);
 
   // ─── اختبار TTS ───────────────────────────────────────────────────────────
-  const testTTS = () => {
-    if (!('speechSynthesis' in window)) {
-      setTtsState('fail');
-      return;
-    }
-    window.speechSynthesis.cancel();
+  const testTTS = async () => {
     setTtsState('testing');
 
-    const utterance = new SpeechSynthesisUtterance('مرحباً');
-    utterance.lang = 'ar-SA';
-    utterance.rate = 0.8;
-    utterance.volume = 1;
+    const playServerTTS = async () => {
+      try {
+        if ('speechSynthesis' in window) {
+           window.speechSynthesis.cancel();
+        }
+        
+        const res = await fetch(`/api/tts?text=${encodeURIComponent('مرحباً')}&lang=ar`);
+        if (!res.ok) throw new Error(`TTS error: ${res.status}`);
 
-    const voices = window.speechSynthesis.getVoices();
-    const arabicVoice = voices.find(v => v.lang.startsWith('ar'));
-    if (arabicVoice) utterance.voice = arabicVoice;
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
 
-    utterance.onend   = () => setTtsState('ok');
-    utterance.onerror = () => setTtsState('fail');
+        const audio = new Audio(blobUrl);
+        audio.onended = () => setTtsState('ok');
+        audio.onerror = () => setTtsState('fail');
+        audio.play();
+      } catch (err) {
+        console.error('Server TTS fallback failed:', err);
+        setTtsState('fail');
+      }
+    };
 
-    // تشغيل مباشر (synchronous) — ضروري للموبايل
-    window.speechSynthesis.speak(utterance);
+    if (!('speechSynthesis' in window)) {
+      return playServerTTS();
+    }
 
-    // timeout احتياطي
-    setTimeout(() => {
-      setTtsState(s => s === 'testing' ? 'fail' : s);
-    }, 5000);
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance('مرحباً');
+      utterance.lang = 'ar-SA';
+      utterance.rate = 0.8;
+      utterance.volume = 1;
+
+      const voices = window.speechSynthesis.getVoices();
+      const arabicVoice = voices.find(v => v.lang.startsWith('ar'));
+      
+      if (!arabicVoice && voices.length > 0) {
+        return playServerTTS();
+      }
+
+      if (arabicVoice) utterance.voice = arabicVoice;
+
+      let fallbackTriggered = false;
+
+      const timeoutMsg = setTimeout(() => {
+        if (!fallbackTriggered) {
+          fallbackTriggered = true;
+          playServerTTS();
+        }
+      }, 3000);
+
+      utterance.onstart = () => {
+        clearTimeout(timeoutMsg);
+      };
+
+      utterance.onend = () => {
+        clearTimeout(timeoutMsg);
+        if (!fallbackTriggered) {
+          setTtsState('ok');
+        }
+      };
+
+      utterance.onerror = () => {
+        clearTimeout(timeoutMsg);
+        if (fallbackTriggered) return;
+        fallbackTriggered = true;
+        playServerTTS();
+      };
+
+      window.speechSynthesis.speak(utterance);
+    } catch(err) {
+      playServerTTS();
+    }
   };
 
   // ─── اختبار Mic ───────────────────────────────────────────────────────────
@@ -267,13 +316,6 @@ export default function SpeechSetupScreen({ onDone }: Props) {
                 </p>
               </div>
             )}
-
-            <button
-              onClick={() => setStep('done')}
-              className="w-full py-3 text-gray-400 text-sm underline"
-            >
-              {T.mic_skip}
-            </button>
           </>
         )}
 
@@ -307,15 +349,6 @@ export default function SpeechSetupScreen({ onDone }: Props) {
 
       {/* Footer buttons */}
       <div className="px-5 pb-8 pt-3 border-t border-gray-100 space-y-3">
-        {step !== 'done' && (
-          <button
-            onClick={onDone}
-            className="w-full py-2 text-gray-400 text-sm"
-          >
-            {T.skip}
-          </button>
-        )}
-
         {step === 'synthesis' && (
           <button
             onClick={() => setStep('recognition')}
@@ -326,7 +359,7 @@ export default function SpeechSetupScreen({ onDone }: Props) {
           </button>
         )}
 
-        {step === 'recognition' && micState === 'ok' && (
+        {step === 'recognition' && (
           <button
             onClick={() => setStep('done')}
             className="w-full py-4 bg-gray-800 text-white rounded-2xl font-bold text-base flex items-center justify-center gap-2 active:scale-95 transition-transform"
@@ -343,6 +376,15 @@ export default function SpeechSetupScreen({ onDone }: Props) {
           >
             <span>{T.done}</span>
             <ChevronRight size={20} />
+          </button>
+        )}
+
+        {step !== 'done' && (
+          <button
+            onClick={onDone}
+            className="w-full py-2 text-gray-400 text-sm"
+          >
+            {T.skip}
           </button>
         )}
       </div>
