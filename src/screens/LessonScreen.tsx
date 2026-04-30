@@ -383,6 +383,15 @@ export default function LessonScreen({
     }
   }, [isValidLesson, onBack]);
 
+  // Préchargement des voix système — obligatoire sur mobile
+  useEffect(() => {
+    if (!('speechSynthesis' in window)) return;
+    const loadVoices = () => window.speechSynthesis.getVoices();
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
+  }, []);
+
   if (!isValidLesson) return null;
 
   const lesson = lessonsData[lessonId!];
@@ -404,51 +413,70 @@ export default function LessonScreen({
   const audioCache = useRef<Map<string, string>>(new Map());
   const currentAudio = useRef<HTMLAudioElement | null>(null);
 
-  const playVoice = async (speed: number) => {
+  const playVoice = (speed: number) => {
     if (isPlaying || !('speechSynthesis' in window)) return;
-    
-    // Stop any currently playing audio from previous API based implementations
+
     if (currentAudio.current) {
       currentAudio.current.pause();
       currentAudio.current = null;
     }
+    window.speechSynthesis.cancel();
 
     setIsPlaying(true);
     playSound('click');
-    window.speechSynthesis.cancel(); // إلغاء أي كلام سابق
 
     const utterance = new SpeechSynthesisUtterance(step.arabic);
     utterance.lang = 'ar-SA';
     utterance.rate = speed < 1 ? 0.4 : 0.8;
+    utterance.pitch = 1;
     utterance.volume = 1;
 
-    // Workaround لمعالجة مشكلة التوقف المفاجئ في بعض المتصفحات (مثل Chrome)
-    const keepAlive = setInterval(() => {
-      window.speechSynthesis.pause();
-      window.speechSynthesis.resume();
-    }, 10000);
-
-    // انتظار تحميل الأصوات
-    const voices = await new Promise<SpeechSynthesisVoice[]>(resolve => {
-      const v = window.speechSynthesis.getVoices();
-      if (v.length) return resolve(v);
-      window.speechSynthesis.onvoiceschanged = () => resolve(window.speechSynthesis.getVoices());
-      // Fallback
-      setTimeout(() => resolve(window.speechSynthesis.getVoices()), 500);
-    });
-
+    // Voix déjà préchargées par le useEffect → appel synchrone
+    const voices = window.speechSynthesis.getVoices();
     const arabicVoice = voices.find(v => v.lang.startsWith('ar'));
     if (arabicVoice) utterance.voice = arabicVoice;
+
+    const keepAlive = setInterval(() => {
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      } else {
+        clearInterval(keepAlive);
+      }
+    }, 10000);
 
     utterance.onend = () => {
       clearInterval(keepAlive);
       setIsPlaying(false);
     };
-    utterance.onerror = () => {
+
+    utterance.onerror = (e) => {
       clearInterval(keepAlive);
       setIsPlaying(false);
+      // Fallback : réessayer sans voix spécifique
+      if (e.error === 'voice-unavailable' || e.error === 'synthesis-unavailable') {
+        const fallback = new SpeechSynthesisUtterance(step.arabic);
+        fallback.lang = 'ar';
+        fallback.rate = speed < 1 ? 0.4 : 0.8;
+        fallback.onend  = () => setIsPlaying(false);
+        fallback.onerror = () => setIsPlaying(false);
+        window.speechSynthesis.speak(fallback);
+        setIsPlaying(true);
+      }
     };
+
+    // ✅ speak() appelé directement — pas d'await — fonctionne sur mobile
     window.speechSynthesis.speak(utterance);
+
+    // Si les voix ne sont pas encore chargées (cas rare), retry
+    if (!voices.length) {
+      window.speechSynthesis.cancel();
+      setIsPlaying(false);
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.onvoiceschanged = null;
+        setTimeout(() => playVoice(speed), 100);
+      };
+    }
   };
 
   const handlePlayAudio = () => playVoice(1.0);

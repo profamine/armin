@@ -14,6 +14,8 @@ import { LanguageProvider } from './contexts/LanguageContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+import SpeechSetupScreen from './screens/SpeechSetupScreen';
+
 type Screen = 'home' | 'lesson' | 'profile' | 'chat' | 'practice';
 
 // ─── App ──────────────────────────────────────────────────────────────────────
@@ -27,6 +29,10 @@ export default function App() {
 }
 
 function AppContent() {
+  const [showSetup, setShowSetup] = useState(() =>
+    localStorage.getItem('speechSetupDone') !== 'true'
+  );
+
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
   const [activeLesson, setActiveLesson] = useState<string | null>(null);
 
@@ -108,7 +114,20 @@ function AppContent() {
     setCurrentScreen('home');
   }, []);
 
+  const handleSetupDone = useCallback(() => {
+    localStorage.setItem('speechSetupDone', 'true');
+    setShowSetup(false);
+  }, []);
+
   const showNav = currentScreen !== 'lesson';
+
+  if (showSetup) {
+    return (
+      <div className="flex flex-col h-[100dvh] w-full max-w-md mx-auto bg-gray-50 shadow-2xl overflow-hidden relative sm:border-x sm:border-gray-200">
+        <SpeechSetupScreen onDone={handleSetupDone} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-[100dvh] w-full max-w-md mx-auto bg-gray-50 shadow-2xl overflow-hidden relative sm:border-x sm:border-gray-200">
