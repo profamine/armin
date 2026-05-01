@@ -463,8 +463,27 @@ export default function ChatScreen() {
   };
 
   const handleSpeak = (text: string) => {
-    // ✅ Server TTS
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      // Try to use native Arabic voice if possible
+      const voices = window.speechSynthesis.getVoices();
+      const arabicVoice = voices.find(v => v.lang.startsWith('ar'));
+      
+      if (arabicVoice || voices.length === 0) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'ar-SA';
+        utterance.rate = 0.8;
+        if (arabicVoice) utterance.voice = arabicVoice;
+        utterance.onerror = () => {
+          // Fallback to server TTS if native fails
+          new Audio(`/api/tts?text=${encodeURIComponent(text)}`).play().catch(() => {});
+        };
+        window.speechSynthesis.speak(utterance);
+        return;
+      }
+    }
+    
+    // Fallback if no native voice or no Speech Synthesis
     const audio = new Audio(`/api/tts?text=${encodeURIComponent(text)}`);
     audio.play().catch(() => {});
   };

@@ -491,12 +491,9 @@ export default function LessonScreen({
 
     const cacheKey = `${step.arabic}__${speed}`;
 
-    // ✅ Serveur TTS (Google Translate)
-    try {
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-
+    const fallbackToServerTTS = () => {
       const cacheHit = audioCache.current.get(cacheKey);
-      const audioUrl = cacheHit ?? `/api/tts?text=${encodeURIComponent(step.arabic)}`;
+      const audioUrl = cacheHit ?? `/api/tts?text=${encodeURIComponent(step.arabic)}&lang=ar`;
 
       const audio = new Audio(audioUrl);
       currentAudio.current = audio;
@@ -519,9 +516,84 @@ export default function LessonScreen({
       if (playPromise !== undefined) {
         playPromise.catch(() => setIsPlaying(false));
       }
+    };
+
+    try {
+      if (!('speechSynthesis' in window)) {
+        fallbackToServerTTS();
+        return;
+      }
+      
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(step.arabic);
+      utterance.lang = 'ar-SA';
+      utterance.rate = speed < 1 ? 0.4 : 0.8;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+
+      const voices = window.speechSynthesis.getVoices();
+      const arabicVoice = voices.find(v => v.lang.startsWith('ar'));
+      
+      // Condition 1: Aucun voix arabe dispo
+      if (!arabicVoice && voices.length > 0) {
+        fallbackToServerTTS();
+        return;
+      }
+
+      if (arabicVoice) utterance.voice = arabicVoice;
+
+      let fallbackTriggered = false;
+
+      // Condition 2: Timeout après 3 secondes (si onstart ne se déclenche pas ou bug)
+      const timeoutMsg = setTimeout(() => {
+        if (!fallbackTriggered) {
+          fallbackTriggered = true;
+          fallbackToServerTTS();
+        }
+      }, 3000);
+
+      const keepAlive = setInterval(() => {
+        if (window.speechSynthesis.speaking) {
+          window.speechSynthesis.pause();
+          window.speechSynthesis.resume();
+        } else {
+          clearInterval(keepAlive);
+        }
+      }, 10000);
+
+      utterance.onstart = () => {
+        clearTimeout(timeoutMsg);
+      };
+
+      utterance.onend = () => {
+        clearTimeout(timeoutMsg);
+        clearInterval(keepAlive);
+        if (!fallbackTriggered) {
+          setIsPlaying(false);
+        }
+      };
+
+      // Condition 3: Erreur de synthèse
+      utterance.onerror = (e) => {
+        clearTimeout(timeoutMsg);
+        clearInterval(keepAlive);
+        if (fallbackTriggered) return;
+        
+        fallbackTriggered = true;
+        fallbackToServerTTS();
+      };
+
+      window.speechSynthesis.speak(utterance);
+
+      // Si voix non chargées, timeout couvre l'échec
+      if (!voices.length) {
+        window.speechSynthesis.onvoiceschanged = () => {
+          // juste attendre evt, sinon timeout va fallback
+        };
+      }
     } catch (err) {
       console.error('TTS error:', err);
-      setIsPlaying(false);
+      fallbackToServerTTS();
     }
   };
 

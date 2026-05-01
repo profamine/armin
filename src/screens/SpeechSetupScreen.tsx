@@ -79,7 +79,54 @@ export default function SpeechSetupScreen({ onDone }: Props) {
     setTtsState('testing');
     fallbackTriggeredRef.current = false;
 
-    playServerTTS();
+    if (!('speechSynthesis' in window)) {
+      playServerTTS();
+      return;
+    }
+
+    try {
+      window.speechSynthesis.cancel();
+
+      const voices = await getVoicesAsync();
+      const arabicVoice = voices.find(v => v.lang.startsWith('ar'));
+
+      if (!arabicVoice && voices.length > 0) {
+        playServerTTS();
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance('مرحباً');
+      utterance.lang = 'ar-SA';
+      utterance.rate = 0.8;
+      utterance.volume = 1;
+      if (arabicVoice) utterance.voice = arabicVoice;
+
+      const timeout = setTimeout(() => {
+        if (!fallbackTriggeredRef.current) {
+          fallbackTriggeredRef.current = true;
+          playServerTTS();
+        }
+      }, 3000);
+
+      utterance.onstart = () => clearTimeout(timeout);
+
+      utterance.onend = () => {
+        clearTimeout(timeout);
+        if (!fallbackTriggeredRef.current) setTtsState('ok');
+      };
+
+      utterance.onerror = () => {
+        clearTimeout(timeout);
+        if (!fallbackTriggeredRef.current) {
+          fallbackTriggeredRef.current = true;
+          playServerTTS();
+        }
+      };
+
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      playServerTTS();
+    }
   }, [playServerTTS]);
 
   // ─── Test Microphone ─────────────────────────────────────────────────────
