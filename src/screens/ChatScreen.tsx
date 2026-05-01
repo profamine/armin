@@ -463,12 +463,10 @@ export default function ChatScreen() {
   };
 
   const handleSpeak = (text: string) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'ar-SA';
-      utterance.rate = 0.8;
-      window.speechSynthesis.speak(utterance);
-    }
+    // ✅ Server TTS
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    const audio = new Audio(`/api/tts?text=${encodeURIComponent(text)}`);
+    audio.play().catch(() => {});
   };
 
   const handleClearChat = () => {

@@ -114,33 +114,23 @@ async function startServer(): Promise<void> {
   );
 
   // ── Route /api/tts ──────────────────────────────────────────────────────
+  // ✅ Groq PlayAI TTS — voix arabe native (Nadia-PlayAI)
   app.get('/api/tts', async (req: Request, res: Response): Promise<void> => {
     try {
-      const { text, lang, speed } = req.query;
+      const { text } = req.query;
       if (!text || typeof text !== 'string') {
         res.status(400).json({ error: '`text` is required.' });
         return;
       }
-      
-      const targetLang = typeof lang === 'string' ? lang : 'ar';
 
-      const url = new URL('https://translate.google.com/translate_tts');
-      url.searchParams.set('ie', 'UTF-8');
-      url.searchParams.set('q', text);
-      url.searchParams.set('tl', targetLang);
-      url.searchParams.set('client', 'tw-ob');
-
-      const response = await fetch(url.toString(), {
-          headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          }
+      const ttsResponse = await groq.audio.speech.create({
+        model: 'playai-tts-arabic',
+        voice: 'Nadia-PlayAI',
+        input: text,
+        response_format: 'mp3',
       });
-      
-      if (!response.ok) {
-        throw new Error(`Google TTS error: ${response.status}`);
-      }
 
-      const buffer = Buffer.from(await response.arrayBuffer());
+      const buffer = Buffer.from(await ttsResponse.arrayBuffer());
       res.set('Content-Type', 'audio/mpeg');
       res.set('Cache-Control', 'public, max-age=3600');
       res.send(buffer);

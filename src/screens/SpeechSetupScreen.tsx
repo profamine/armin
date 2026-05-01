@@ -65,10 +65,10 @@ export default function SpeechSetupScreen({ onDone }: Props) {
       setTimeout(() => resolve(window.speechSynthesis.getVoices()), 1500);
     });
 
-  // ─── Fallback TTS serveur ────────────────────────────────────────────────
+  // ─── TTS via serveur (Google Translate) ─────────────────────────
   const playServerTTS = useCallback(() => {
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    const audio = new Audio(`/api/tts?text=${encodeURIComponent('مرحباً')}&lang=ar`);
+    const audio = new Audio(`/api/tts?text=${encodeURIComponent('\u0645\u0631\u062d\u0628\u0627\u064b')}`);
     audio.onended = () => setTtsState('ok');
     audio.onerror = () => setTtsState('fail');
     audio.play().catch(() => setTtsState('fail'));
@@ -79,55 +79,7 @@ export default function SpeechSetupScreen({ onDone }: Props) {
     setTtsState('testing');
     fallbackTriggeredRef.current = false;
 
-    if (!('speechSynthesis' in window)) {
-      playServerTTS();
-      return;
-    }
-
-    try {
-      window.speechSynthesis.cancel();
-
-      const voices     = await getVoicesAsync();
-      const arabicVoice = voices.find(v => v.lang.startsWith('ar'));
-
-      // Pas de voix arabe mais d'autres voix disponibles → serveur
-      if (!arabicVoice && voices.length > 0) {
-        playServerTTS();
-        return;
-      }
-
-      const utterance  = new SpeechSynthesisUtterance('مرحباً');
-      utterance.lang   = 'ar-SA';
-      utterance.rate   = 0.8;
-      utterance.volume = 1;
-      if (arabicVoice) utterance.voice = arabicVoice;
-
-      const timeout = setTimeout(() => {
-        if (!fallbackTriggeredRef.current) {
-          fallbackTriggeredRef.current = true;
-          playServerTTS();
-        }
-      }, 3000);
-
-      utterance.onstart = () => clearTimeout(timeout);
-
-      utterance.onend = () => {
-        clearTimeout(timeout);
-        if (!fallbackTriggeredRef.current) setTtsState('ok');
-      };
-
-      utterance.onerror = () => {
-        clearTimeout(timeout);
-        if (!fallbackTriggeredRef.current) {
-          fallbackTriggeredRef.current = true;
-          playServerTTS();
-        }
-      };
-
-      window.speechSynthesis.speak(utterance);
-    } catch {
-      playServerTTS();
-    }
+    playServerTTS();
   }, [playServerTTS]);
 
   // ─── Test Microphone ─────────────────────────────────────────────────────
@@ -199,22 +151,22 @@ export default function SpeechSetupScreen({ onDone }: Props) {
     ],
 
     // Étape 2 — Microphone
-    mic_title: ar ? 'الميكروفون (للنطق)'       : 'Խոսափողն (արտasutyan համար)',
+    mic_title: ar ? 'الميكروفون (للنطق)'       : 'Խոսափող (արտասանության համար)',
     mic_desc:  ar
       ? 'بعض التمارين تطلب منك النطق. التطبيق يحتاج إذن استخدام الميكروفون.'
-      : 'Որոշ վarzhuttanner pahanjum en artasanut\'yun։ Havelvatsy karik uni khosapolí t\'uyltvut\'yan։',
+      : 'Որոշ վարժություններ պահանջում են արտասանություն: Հավելվածը կարիք ունի խոսափողի թույլտվության:',
     mic_btn:   ar ? '🎙️ اطلب إذن الميكروفون' : '🎙️ Թույլ տալ',
-    mic_ok:    ar ? 'الميكروفون جاهز ✓'        : 'Խոսափողը պատրաст է ✓',
+    mic_ok:    ar ? 'الميكروفون جاهز ✓'        : 'Խոսափողը պատրաստ է ✓',
     mic_fail:  ar
       ? 'تم رفض الإذن — يمكنك المتابعة بدون النطق'
-      : 'Հրաժارvets — karogh ek sharak\'el aranc artasanut\'yan',
-    mic_skip:  ar ? 'تخطي هذه الخطوة' : 'Բاc t\'oghn el ays kayl\'y', // ✓ maintenant utilisé
+      : 'Մերժվեց — կարող եք շարունակել առանց արտասանության',
+    mic_skip:  ar ? 'تخطي هذه الخطوة' : 'Բաց թողնել այս քայլը', // ✓ maintenant utilisé
 
     // Étape 3 — Fin
-    done_title: ar ? 'أنت جاهز! 🎉'   : 'Պատрaст եք! 🎉',  // ✓ corrigé
+    done_title: ar ? 'أنت جاهز! 🎉'   : 'Պատրաստ եք! 🎉',  // ✓ corrigé
     done_desc:  ar
       ? 'يمكنك دائماً تغيير هذه الإعدادات لاحقاً من إعدادات هاتفك.'
-      : 'Կаrоgh ek mishtapes p\'okh\'el ays karkavoumneritydzez herakhos Karkavoumnerits։',
+      : 'Դուք կարող եք միշտ փոխել այս կարգավորումները ձեր հեռախոսի կարգավորումներից:',
   };
 
   // ─── Icône de statut ─────────────────────────────────────────────────────
@@ -231,7 +183,7 @@ export default function SpeechSetupScreen({ onDone }: Props) {
   const Steps: { id: StepId; icon: React.ReactNode; label: string }[] = [
     { id: 'synthesis',   icon: <Volume2 size={14} />,     label: 'TTS' },
     { id: 'recognition', icon: <Mic size={14} />,         label: ar ? 'ميكروفون' : 'Mic' },
-    { id: 'done',        icon: <CheckCircle size={14} />, label: ar ? 'جاهز' : 'Պатраст' },
+    { id: 'done',        icon: <CheckCircle size={14} />, label: ar ? 'جاهز' : 'Պատրաստ' },
   ];
   const currentIdx = Steps.findIndex(s => s.id === step);
 
@@ -322,7 +274,7 @@ export default function SpeechSetupScreen({ onDone }: Props) {
                 <div className="flex items-center gap-2 mb-3">
                   <Settings size={16} className="text-amber-600 shrink-0" />
                   <span className="font-bold text-amber-800 text-sm">
-                    {platformLabel} — {ar ? 'خطوات التفعيل' : 'Ակտivatsman kaylerum'}
+                    {platformLabel} — {ar ? 'خطوات التفعيل' : 'Ակտիվացման քայլեր'}
                   </span>
                 </div>
                 <ol className="space-y-2">

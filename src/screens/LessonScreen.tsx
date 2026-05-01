@@ -491,108 +491,37 @@ export default function LessonScreen({
 
     const cacheKey = `${step.arabic}__${speed}`;
 
-    const fallbackToServerTTS = () => {
-      try {
-        if ('speechSynthesis' in window) {
-           window.speechSynthesis.cancel();
-        }
-        
-        const audioUrl = `/api/tts?text=${encodeURIComponent(step.arabic)}&lang=ar`;
-        const audio = new Audio(audioUrl);
-        currentAudio.current = audio;
-        audio.playbackRate = speed;
-        audio.onended = () => setIsPlaying(false);
-        audio.onerror = () => setIsPlaying(false);
-        
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(err => {
-            console.error('Server TTS fallback failed:', err);
-            setIsPlaying(false);
-          });
-        }
-      } catch (err) {
-        console.error('Server TTS fallback failed:', err);
-        setIsPlaying(false);
-      }
-    };
-
-    if (!('speechSynthesis' in window)) {
-      fallbackToServerTTS();
-      return;
-    }
-
+    // ✅ Serveur TTS (Google Translate)
     try {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(step.arabic);
-      utterance.lang = 'ar-SA';
-      utterance.rate = speed < 1 ? 0.4 : 0.8;
-      utterance.pitch = 1;
-      utterance.volume = 1;
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
 
-      const voices = window.speechSynthesis.getVoices();
-      const arabicVoice = voices.find(v => v.lang.startsWith('ar'));
-      
-      // Condition 1: Aucune voix arabe disponible (sauf si les voix ne sont pas encore chargées)
-      if (!arabicVoice && voices.length > 0) {
-        fallbackToServerTTS();
-        return;
+      const cacheHit = audioCache.current.get(cacheKey);
+      const audioUrl = cacheHit ?? `/api/tts?text=${encodeURIComponent(step.arabic)}`;
+
+      const audio = new Audio(audioUrl);
+      currentAudio.current = audio;
+      audio.playbackRate = speed;
+      audio.onended = () => setIsPlaying(false);
+      audio.onerror = () => setIsPlaying(false);
+
+      if (!cacheHit) {
+        // Mise en cache du blob pour éviter les appels répétés
+        fetch(audioUrl)
+          .then(r => r.blob())
+          .then(blob => {
+            const url = URL.createObjectURL(blob);
+            audioCache.current.set(cacheKey, url);
+          })
+          .catch(() => {});
       }
 
-      if (arabicVoice) utterance.voice = arabicVoice;
-
-      let fallbackTriggered = false;
-
-      // Condition 2: Timeout après 3 secondes (si onstart ne se déclenche pas ou bug)
-      const timeoutMsg = setTimeout(() => {
-        if (!fallbackTriggered) {
-          fallbackTriggered = true;
-          fallbackToServerTTS();
-        }
-      }, 3000);
-
-      const keepAlive = setInterval(() => {
-        if (window.speechSynthesis.speaking) {
-          window.speechSynthesis.pause();
-          window.speechSynthesis.resume();
-        } else {
-          clearInterval(keepAlive);
-        }
-      }, 10000);
-
-      utterance.onstart = () => {
-        clearTimeout(timeoutMsg);
-      };
-
-      utterance.onend = () => {
-        clearTimeout(timeoutMsg);
-        clearInterval(keepAlive);
-        if (!fallbackTriggered) {
-          setIsPlaying(false);
-        }
-      };
-
-      // Condition 3: Erreur de synthèse
-      utterance.onerror = (e) => {
-        clearTimeout(timeoutMsg);
-        clearInterval(keepAlive);
-        if (fallbackTriggered) return;
-        
-        fallbackTriggered = true;
-        fallbackToServerTTS();
-      };
-
-      window.speechSynthesis.speak(utterance);
-
-      // Si les voix ne sont pas encore chargées, le timeout couvrira l'échec 
-      // ou bien l'évènement onvoiceschanged nous informera.
-      if (!voices.length) {
-        window.speechSynthesis.onvoiceschanged = () => {
-          // just let it play if it can, otherwise timeout will fallback
-        };
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => setIsPlaying(false));
       }
-    } catch(err) {
-      fallbackToServerTTS();
+    } catch (err) {
+      console.error('TTS error:', err);
+      setIsPlaying(false);
     }
   };
 
