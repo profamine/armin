@@ -90,7 +90,7 @@ async function startServer(): Promise<void> {
         }));
 
         const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
+          model: 'gemini-2.0-flash',
           contents: formattedContents,
           config: systemInstruction ? { systemInstruction } : undefined
         });
@@ -113,7 +113,7 @@ async function startServer(): Promise<void> {
       }
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-tts-preview",
+        model: "gemini-2.5-flash-preview-tts",
         contents: [{ parts: [{ text }] }],
         config: {
           responseModalities: [Modality.AUDIO],
@@ -158,7 +158,7 @@ async function startServer(): Promise<void> {
       }
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.0-flash',
         contents: [
           {
             parts: [
