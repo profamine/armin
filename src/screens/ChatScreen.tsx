@@ -397,6 +397,78 @@ export default function ChatScreen() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<BlobPart[]>([]);
+
+  const handleRecord = async () => {
+    if (isRecording) {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+      return;
+    }
+
+    setIsRecording(true);
+    audioChunksRef.current = [];
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        setIsRecording(false);
+        stream.getTracks().forEach((track) => track.stop());
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = async () => {
+          const result = reader.result as string;
+          if (!result || !result.includes(',')) return;
+          const base64Data = result.split(',')[1];
+
+          setIsTranscribing(true);
+          try {
+             const res = await fetch('/api/transcribe', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ audioData: base64Data, mimeType: mediaRecorder.mimeType, expectedLanguage: 'Arabic or Armenian' })
+             });
+             const data = await res.json();
+             if (data.text) {
+                 setInput(prev => (prev ? prev + ' ' : '') + data.text);
+             }
+          } catch(err) {
+             console.error(err);
+          } finally {
+             setIsTranscribing(false);
+          }
+        };
+      };
+
+      mediaRecorder.start();
+      
+      // Limit recording to 15 seconds
+      setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            mediaRecorderRef.current.stop();
+        }
+      }, 15000);
+    } catch (err) {
+      console.error('Mic error:', err);
+      setIsRecording(false);
+    }
+  };
+
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
@@ -658,8 +730,13 @@ export default function ChatScreen() {
               <Send size={18} className="ml-0.5" />
             </button>
           ) : (
-            <button disabled={isTyping} className={`w-11 h-11 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-full flex items-center justify-center transition-all shadow-md flex-shrink-0 ${isTyping ? 'opacity-50 cursor-not-allowed' : 'hover:from-emerald-600 hover:to-teal-700 shadow-emerald-200 active:scale-95'}`}>
-              <Mic size={18} />
+            <button 
+              onClick={handleRecord}
+              disabled={isTyping || isTranscribing} 
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all shadow-md flex-shrink-0 ${isTyping || isTranscribing ? 'opacity-50 cursor-not-allowed bg-gray-400 text-white' : isRecording ? 'bg-red-500 hover:bg-red-600 animate-pulse text-white' : 'bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-emerald-200 active:scale-95'}`}>
+              {isTranscribing ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : isRecording ? <MicOff size={18} /> : <Mic size={18} />}
             </button>
           )}
         </div>

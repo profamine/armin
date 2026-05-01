@@ -411,6 +411,9 @@ export default function LessonScreen({
   const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(0);
   const [recording, setRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<BlobPart[]>([]);
   const [feedback, setFeedback] = useState<'excellent' | 'good' | 'poor' | null>(null);
   const [lives, setLives] = useState(3);
   const [xp, setXp] = useState(0);
@@ -600,7 +603,13 @@ export default function LessonScreen({
   const handlePlayAudio = () => playVoice(1.0);
   const handlePlaySlow = () => playVoice(0.7);
 
-  const recognitionRef = useRef<any>(null);
+  const normalize = (str: string) => {
+    return str
+      .replace(/[\u064B-\u065F]/g, '') // Remove Arabic diacritics
+      .replace(/[.,!?؟'"]/g, '')       // Remove punctuation
+      .trim()
+      .toLowerCase();
+  };
 
   const handleSimulatedRecord = () => {
     if (recording) {
@@ -641,89 +650,105 @@ export default function LessonScreen({
     }
   };
 
-  const handleRecord = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    
-    if (!SpeechRecognition) {
-      return handleSimulatedRecord();
-    }
-
+  const handleRecord = async () => {
     if (recording) {
-      // User tapped to stop recording early
-      setRecording(false);
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
       }
-      playSound('click');
       return;
     }
 
     setRecording(true);
     setFeedback(null);
     playSound('speak');
+    audioChunksRef.current = [];
 
     try {
-      const recognition = new SpeechRecognition();
-      recognitionRef.current = recognition;
-      recognition.lang = 'ar-SA';
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
 
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        const confidence = event.results[0][0].confidence;
-        
-        const normalizedTranscript = normalize(transcript);
-        const expected = normalize(step.arabic);
-        
-        // Exact match or very high confidence => Excellent
-        if (normalizedTranscript === expected || confidence > 0.70) {
-          setFeedback('excellent');
-          setXp((prev) => prev + 15);
-          setStreak((prev) => prev + 1);
-          setCorrectAnswers((prev) => prev + 1);
-          playSound('correct');
-          if (streak > 0 && (streak + 1) % 3 === 0) {
-            setShowStreakBonus(true);
-            setXp((prev) => prev + 5);
-            setTimeout(() => setShowStreakBonus(false), 2000);
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        setRecording(false);
+        stream.getTracks().forEach((track) => track.stop());
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = async () => {
+          const result = reader.result as string;
+          if (!result || !result.includes(',')) return;
+          const base64Data = result.split(',')[1];
+
+          setIsTranscribing(true);
+          try {
+             const res = await fetch('/api/transcribe', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ audioData: base64Data, mimeType: mediaRecorder.mimeType, expectedLanguage: 'Arabic' })
+             });
+             const data = await res.json();
+             const transcript = data.text;
+             const normalizedTranscript = normalize(transcript);
+             const expected = normalize(step.arabic);
+             
+             // Very simple exact match or partial match approach
+             if (normalizedTranscript === expected || normalizedTranscript.includes(expected)) {
+               setFeedback('excellent');
+               setXp((prev) => prev + 15);
+               setStreak((prev) => prev + 1);
+               setCorrectAnswers((prev) => prev + 1);
+               playSound('correct');
+               if (streak > 0 && (streak + 1) % 3 === 0) {
+                 setShowStreakBonus(true);
+                 setXp((prev) => prev + 5);
+                 setTimeout(() => setShowStreakBonus(false), 2000);
+               }
+             } else if (expected.split(' ').some(w => normalizedTranscript.includes(w))) {
+               // partial match
+               setFeedback('good');
+               setXp((prev) => prev + 8);
+               setCorrectAnswers((prev) => prev + 1);
+               playSound('correct');
+             } else {
+               setFeedback('poor');
+               setStreak(0);
+               playSound('wrong');
+               setShakeWrong(true);
+               setTimeout(() => setShakeWrong(false), 500);
+             }
+             setTotalAnswered((prev) => prev + 1);
+          } catch(err) {
+             console.error(err);
+             setFeedback('poor');
+             setStreak(0);
+             playSound('wrong');
+             setShakeWrong(true);
+             setTimeout(() => setShakeWrong(false), 500);
+             setTotalAnswered((prev) => prev + 1);
+          } finally {
+             setIsTranscribing(false);
           }
-        } else if (confidence > 0.3) {
-          setFeedback('good');
-          setXp((prev) => prev + 8);
-          setCorrectAnswers((prev) => prev + 1);
-          playSound('correct');
-        } else {
-          setFeedback('poor');
-          setStreak(0);
-          playSound('wrong');
-          setShakeWrong(true);
-          setTimeout(() => setShakeWrong(false), 500);
+        };
+      };
+
+      mediaRecorder.start();
+
+      // Ensure that we stop recording after 5.5 seconds max
+      setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            mediaRecorderRef.current.stop();
         }
-        setTotalAnswered((prev) => prev + 1);
-        setRecording(false);
-      };
+      }, 5500);
 
-      recognition.onerror = (event: any) => {
-        console.error("Speech recognition error", event.error);
-        if (event.error !== 'aborted') {
-            setFeedback('poor');
-            setStreak(0);
-            playSound('wrong');
-            setShakeWrong(true);
-            setTimeout(() => setShakeWrong(false), 500);
-            setTotalAnswered((prev) => prev + 1);
-        }
-        setRecording(false);
-      };
-
-      recognition.onend = () => {
-        setRecording(false);
-      };
-
-      recognition.start();
     } catch (err) {
-      console.error(err);
+      console.error('Error accessing microphone', err);
       handleSimulatedRecord();
     }
   };
@@ -1362,13 +1387,16 @@ export default function LessonScreen({
           <div className="flex justify-center pb-2">
             <button
               onClick={handleRecord}
+              disabled={isTranscribing}
               className={`w-20 h-20 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 ${
                 recording
                   ? 'bg-gradient-to-br from-red-500 to-rose-600 text-white scale-110 ring-4 ring-red-200 animate-pulse'
                   : 'bg-gradient-to-br from-purple-500 to-indigo-600 text-white hover:from-purple-600 hover:to-indigo-700 active:scale-95 shadow-purple-200'
-              }`}
+              } ${isTranscribing ? 'opacity-75 cursor-wait' : ''}`}
             >
-              {recording ? <MicOff size={32} /> : <Mic size={32} />}
+              {isTranscribing ? (
+                 <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
+              ) : recording ? <MicOff size={32} /> : <Mic size={32} />}
             </button>
           </div>
         )}

@@ -1,36 +1,20 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { createServer as createViteServer } from 'vite';
-import Groq from 'groq-sdk';
+import { GoogleGenAI, Modality } from '@google/genai';
 import dotenv from 'dotenv';
 import path from 'path';
 
 dotenv.config();
 
 // ─── Validation de la config au démarrage ────────────────────────────────────
-const REQUIRED_ENV = ['GROQ_API_KEY'] as const;
-
-function validateEnv(): void {
-  const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
-  if (missing.length > 0) {
-    console.error(`❌ Variables d'environnement manquantes : ${missing.join(', ')}`);
-    process.exit(1);
-  }
-}
-
-// ─── Instance Groq unique (singleton) ────────────────────────────────────────
-function createGroqClient(): Groq {
-  return new Groq({ apiKey: process.env.GROQ_API_KEY! });
+function createGenAIClient(): GoogleGenAI {
+  return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 }
 
 // ─── Helper : extraire le message d'erreur ───────────────────────────────────
 function extractErrorMessage(err: unknown): string {
   if (!(err instanceof Error)) return 'Une erreur inconnue est survenue.';
-  try {
-    const parsed = JSON.parse(err.message);
-    return parsed?.error?.message ?? err.message;
-  } catch {
-    return err.message;
-  }
+  return err.message || 'Une erreur inconnue est survenue.';
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -44,37 +28,39 @@ interface ChatRequestBody {
   systemInstruction?: string;
 }
 
-// ─── Convertir le format Gemini → format OpenAI/Groq ─────────────────────────
-function toGroqMessages(
-  contents: ChatMessage[],
-  systemInstruction?: string
-): Groq.Chat.ChatCompletionMessageParam[] {
-  const messages: Groq.Chat.ChatCompletionMessageParam[] = [];
-
-  if (systemInstruction) {
-    messages.push({ role: 'system', content: systemInstruction });
-  }
-
-  for (const msg of contents) {
-    messages.push({
-      role: msg.role === 'model' ? 'assistant' : 'user',
-      content: msg.parts.map((p) => p.text).join(''),
-    });
-  }
-
-  return messages;
+// ─── Encode raw PCM to WAV ──────────────────────────────────────────────────
+function encodeWAV(pcmBytes: Buffer, sampleRate = 24000): Buffer {
+  const numChannels = 1;
+  const bitsPerSample = 16;
+  const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+  const blockAlign = numChannels * (bitsPerSample / 8);
+  
+  const buffer = Buffer.alloc(44 + pcmBytes.length);
+  buffer.write('RIFF', 0);
+  buffer.writeUInt32LE(36 + pcmBytes.length, 4);
+  buffer.write('WAVE', 8);
+  buffer.write('fmt ', 12);
+  buffer.writeUInt32LE(16, 16); 
+  buffer.writeUInt16LE(1, 20); 
+  buffer.writeUInt16LE(numChannels, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(byteRate, 28);
+  buffer.writeUInt16LE(blockAlign, 32);
+  buffer.writeUInt16LE(bitsPerSample, 34);
+  buffer.write('data', 36);
+  buffer.writeUInt32LE(pcmBytes.length, 40);
+  pcmBytes.copy(buffer, 44);
+  return buffer;
 }
 
 // ─── Serveur principal ───────────────────────────────────────────────────────
 async function startServer(): Promise<void> {
-  validateEnv();
-
   const app = express();
   const PORT = 3000;
   const IS_PROD = process.env.NODE_ENV === 'production';
-  const groq = createGroqClient();
+  const ai = createGenAIClient();
 
-  app.use(express.json({ limit: '1mb' }));
+  app.use(express.json({ limit: '10mb' }));
 
   // ── Validation basique du body ──────────────────────────────────────────
   function validateChatBody(
@@ -96,16 +82,20 @@ async function startServer(): Promise<void> {
     async (req: Request<{}, {}, ChatRequestBody>, res: Response): Promise<void> => {
       try {
         const { contents, systemInstruction } = req.body;
+        
+        // Map messages
+        const formattedContents = contents.map(m => ({
+          role: m.role,
+          parts: m.parts.map(p => ({ text: p.text }))
+        }));
 
-        const completion = await groq.chat.completions.create({
-          model: process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
-          messages: toGroqMessages(contents, systemInstruction),
-          temperature: 0.7,
-          max_tokens: 2048,
+        const response = await ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: formattedContents,
+          config: systemInstruction ? { systemInstruction } : undefined
         });
 
-        const text = completion.choices[0]?.message?.content ?? '';
-        res.json({ text });
+        res.json({ text: response.text });
       } catch (err) {
         console.error('Chat API Error:', err);
         res.status(500).json({ error: extractErrorMessage(err) });
@@ -114,39 +104,75 @@ async function startServer(): Promise<void> {
   );
 
   // ── Route /api/tts ──────────────────────────────────────────────────────
-  // Fallback to Google Translate TTS for Arabic
   app.get('/api/tts', async (req: Request, res: Response): Promise<void> => {
     try {
-      const { text, lang } = req.query;
+      const { text } = req.query;
       if (!text || typeof text !== 'string') {
         res.status(400).json({ error: '`text` is required.' });
         return;
       }
 
-      const targetLang = typeof lang === 'string' ? lang : 'ar';
-      const url = new URL('https://translate.google.com/translate_tts');
-      url.searchParams.set('ie', 'UTF-8');
-      url.searchParams.set('q', text);
-      url.searchParams.set('tl', targetLang);
-      url.searchParams.set('client', 'tw-ob');
-
-      const response = await fetch(url.toString(), {
-          headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          }
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-tts-preview",
+        contents: [{ parts: [{ text }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: 'Kore' },
+              },
+          },
+        },
       });
-      
-      if (!response.ok) {
-        throw new Error(`Google TTS error: ${response.status}`);
+
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (!base64Audio) {
+        throw new Error('No audio generated from TTS model');
       }
 
-      const buffer = Buffer.from(await response.arrayBuffer());
-      res.set('Content-Type', 'audio/mpeg');
+      const pcmBytes = Buffer.from(base64Audio, 'base64');
+      const wavBuffer = encodeWAV(pcmBytes, 24000);
+
+      res.set('Content-Type', 'audio/wav');
       res.set('Cache-Control', 'public, max-age=3600');
-      res.send(buffer);
+      res.send(wavBuffer);
     } catch (err) {
       console.error('TTS API Error:', err);
       res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // ── Route /api/transcribe ────────────────────────────────────────────────
+  // STT endpoint. Excepts { audioData: "base64...", mimeType: "audio/webm" }
+  app.post('/api/transcribe', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { audioData, mimeType, expectedLanguage } = req.body;
+      if (!audioData) {
+        res.status(400).json({ error: 'audioData is required' });
+        return;
+      }
+
+      let prompt = 'Please carefully transcribe this audio.';
+      if (expectedLanguage) {
+        prompt += ` The expected language is ${expectedLanguage}. Only output the exact transcription text, with no extra formatting, markdown, or conversational filler.`;
+      }
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              { inlineData: { data: audioData, mimeType: mimeType || 'audio/webm' } }
+            ]
+          }
+        ]
+      });
+
+      res.json({ text: (response.text || "").trim() });
+    } catch (err) {
+      console.error('STT API Error:', err);
+      res.status(500).json({ error: extractErrorMessage(err) });
     }
   });
 
