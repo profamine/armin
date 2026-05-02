@@ -24,6 +24,7 @@ import {
   Trash2,
   Settings,
   Info,
+  MicOff
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -415,7 +416,7 @@ export default function ChatScreen() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      const mediaRecorder = new MediaRecorder(stream, { audioBitsPerSecond: 16000 });
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (event) => {

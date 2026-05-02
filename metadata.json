@@ -1,5 +1,5 @@
 {
   "name": "Armin02",
   "description": "",
-  "requestFramePermissions": []
+  "requestFramePermissions": ["microphone"]
 }
