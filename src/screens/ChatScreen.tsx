@@ -24,7 +24,6 @@ import {
   Trash2,
   Settings,
   Info,
-  MicOff
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
