@@ -4,7 +4,7 @@ import { GoogleGenAI, Modality } from '@google/genai';
 import dotenv from 'dotenv';
 import path from 'path';
 
-dotenv.config();
+dotenv.config({ override: true });
 
 // ─── Validation de la config au démarrage ────────────────────────────────────
 function createGenAIClient(): GoogleGenAI {
@@ -90,7 +90,7 @@ async function startServer(): Promise<void> {
         }));
 
         const response = await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
+          model: 'gemini-2.5-flash',
           contents: formattedContents,
           config: systemInstruction ? { systemInstruction } : undefined
         });
@@ -113,8 +113,8 @@ async function startServer(): Promise<void> {
       }
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-tts-preview",
-        contents: [{ parts: [{ text }] }],
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: "Read this out loud: " + text }] }],
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
@@ -158,7 +158,7 @@ async function startServer(): Promise<void> {
       }
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: [
           {
             parts: [
