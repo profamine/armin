@@ -205,8 +205,8 @@ export default function SpeechSetupScreen({ onDone }: Props) {
     mic_btn:   ar ? '🎙️ اطلب إذن الميكروفون' : '🎙️ Թույլ տալ',
     mic_ok:    ar ? 'الميكروفون جاهز ✓'        : 'Խոսափողը պատրաստ է ✓',
     mic_fail:  ar
-      ? 'تم رفض الإذن — يمكنك المتابعة بدون النطق'
-      : 'Մերժվեց — կարող եք շարունակել առանց արտասանության',
+      ? 'تم رفض الإذن — يرجى تفعيله من إعدادات المتصفح للمتابعة'
+      : 'Մերժվեց — խնդրում ենք միացնել այն դիտարկչի կարգավորումներից՝ շարունակելու համար',
     mic_skip:  ar ? 'تخطي هذه الخطوة' : 'Բաց թողնել այս քայլը', // ✓ maintenant utilisé
 
     // Étape 3 — Fin
@@ -404,9 +404,12 @@ export default function SpeechSetupScreen({ onDone }: Props) {
         {step === 'synthesis' && (
           <button
             onClick={() => setStep('recognition')}
-            className="w-full py-4 bg-gray-800 text-white rounded-2xl font-bold text-base
-                       flex items-center justify-center gap-2
-                       active:scale-95 transition-transform"
+            disabled={ttsState !== 'ok'}
+            className={`w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all ${
+              ttsState === 'ok'
+                ? 'bg-gray-800 text-white active:scale-95'
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            }`}
           >
             <span>{T.next}</span>
             <NavChevron />
@@ -414,27 +417,18 @@ export default function SpeechSetupScreen({ onDone }: Props) {
         )}
 
         {step === 'recognition' && (
-          <>
-            <button
-              onClick={() => setStep('done')}
-              className="w-full py-4 bg-gray-800 text-white rounded-2xl font-bold text-base
-                         flex items-center justify-center gap-2
-                         active:scale-95 transition-transform"
-            >
-              <span>{T.next}</span>
-              <NavChevron />
-            </button>
-
-            {/* ✓ Bouton "passer" maintenant affiché (était défini mais jamais utilisé) */}
-            {micState === 'idle' && (
-              <button
-                onClick={() => setStep('done')}
-                className="w-full py-2 text-gray-400 text-sm"
-              >
-                {T.mic_skip}
-              </button>
-            )}
-          </>
+          <button
+            onClick={() => setStep('done')}
+            disabled={micState !== 'ok'}
+            className={`w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all ${
+              micState === 'ok'
+                ? 'bg-gray-800 text-white active:scale-95'
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            <span>{T.next}</span>
+            <NavChevron />
+          </button>
         )}
 
         {step === 'done' && (
@@ -446,12 +440,6 @@ export default function SpeechSetupScreen({ onDone }: Props) {
           >
             <span>{T.done}</span>
             <NavChevron />
-          </button>
-        )}
-
-        {step !== 'done' && (
-          <button onClick={onDone} className="w-full py-2 text-gray-400 text-sm">
-            {T.skip}
           </button>
         )}
       </div>
