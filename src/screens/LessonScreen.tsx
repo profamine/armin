@@ -31,6 +31,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getApiUrl } from '../apiConfig';
 import { lessonsData, type LessonData, type LessonStep, type QuizOption } from '../data/lessons';
 
 // ===== Sound Effects (Real Web Audio + Vibration) =====
@@ -420,7 +421,6 @@ export default function LessonScreen({
   const [streak, setStreak] = useState(0);
   const [showHint, setShowHint] = useState(false);
   const [showTransliteration, setShowTransliteration] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [quizAnswered, setQuizAnswered] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
@@ -476,127 +476,6 @@ export default function LessonScreen({
       setShuffledArmenians(armenians);
     }
   }, [step]);
-
-  // Cache audio blobs per text+speed to avoid redundant API calls
-  const audioCache = useRef<Map<string, string>>(new Map());
-  const currentAudio = useRef<HTMLAudioElement | null>(null);
-
-  const playVoice = (speed: number) => {
-    if (isPlaying) return;
-
-    if (currentAudio.current) {
-      currentAudio.current.pause();
-      currentAudio.current = null;
-    }
-
-    setIsPlaying(true);
-    playSound('click');
-
-    // Prime the audio system so playback inside async fallbacks isn't blocked on mobile.
-    let audioPrimer: HTMLAudioElement | null = null;
-    try {
-      audioPrimer = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
-      audioPrimer.play().catch(() => {});
-    } catch {}
-
-    const cacheKey = `${step.arabic}__${speed}`;
-
-    const fallbackToServerTTS = () => {
-      // Mode hors-ligne : utiliser Web Speech API sans voix spécifique
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(step.arabic);
-        utterance.lang = 'ar-SA';
-        utterance.rate = speed < 1 ? 0.7 : 1.0;
-        utterance.onend = () => setIsPlaying(false);
-        utterance.onerror = () => setIsPlaying(false);
-        window.speechSynthesis.speak(utterance);
-      } else {
-        setIsPlaying(false);
-      }
-    };
-
-    try {
-      if (!('speechSynthesis' in window)) {
-        fallbackToServerTTS();
-        return;
-      }
-      
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(step.arabic);
-      utterance.lang = 'ar-SA';
-      utterance.rate = speed < 1 ? 0.4 : 0.8;
-      utterance.pitch = 1;
-      utterance.volume = 1;
-
-      const voices = window.speechSynthesis.getVoices();
-      const arabicVoice = voices.find(v => v.lang.startsWith('ar'));
-      
-      // Condition 1: Aucun voix arabe dispo
-      if (!arabicVoice && voices.length > 0) {
-        fallbackToServerTTS();
-        return;
-      }
-
-      if (arabicVoice) utterance.voice = arabicVoice;
-
-      let fallbackTriggered = false;
-
-      // Condition 2: Timeout après 3 secondes (si onstart ne se déclenche pas ou bug)
-      const timeoutMsg = setTimeout(() => {
-        if (!fallbackTriggered) {
-          fallbackTriggered = true;
-          fallbackToServerTTS();
-        }
-      }, 3000);
-
-      const keepAlive = setInterval(() => {
-        if (window.speechSynthesis.speaking) {
-          window.speechSynthesis.pause();
-          window.speechSynthesis.resume();
-        } else {
-          clearInterval(keepAlive);
-        }
-      }, 10000);
-
-      utterance.onstart = () => {
-        clearTimeout(timeoutMsg);
-      };
-
-      utterance.onend = () => {
-        clearTimeout(timeoutMsg);
-        clearInterval(keepAlive);
-        if (!fallbackTriggered) {
-          setIsPlaying(false);
-        }
-      };
-
-      // Condition 3: Erreur de synthèse
-      utterance.onerror = (e) => {
-        clearTimeout(timeoutMsg);
-        clearInterval(keepAlive);
-        if (fallbackTriggered) return;
-        
-        fallbackTriggered = true;
-        fallbackToServerTTS();
-      };
-
-      window.speechSynthesis.speak(utterance);
-
-      // Si voix non chargées, timeout couvre l'échec
-      if (!voices.length) {
-        window.speechSynthesis.onvoiceschanged = () => {
-          // juste attendre evt, sinon timeout va fallback
-        };
-      }
-    } catch (err) {
-      console.error('TTS error:', err);
-      fallbackToServerTTS();
-    }
-  };
-
-  const handlePlayAudio = () => playVoice(1.0);
-  const handlePlaySlow = () => playVoice(0.7);
 
   const normalize = (str: string) => {
     return str
@@ -1086,37 +965,6 @@ export default function LessonScreen({
               >
                 {showTransliteration ? <EyeOff size={14} /> : <Eye size={14} />}
                 {showTransliteration ? t('lesson.hide_transliteration') : t('lesson.show_transliteration')}
-              </button>
-            </div>
-
-            {/* Audio Controls */}
-            <div className="flex items-center gap-5">
-              <button
-                onClick={handlePlayAudio}
-                disabled={isPlaying}
-                className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ${
-                  isPlaying
-                    ? 'bg-blue-400 scale-95'
-                    : 'bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 active:scale-95 shadow-blue-200'
-                }`}
-              >
-                {isPlaying ? (
-                  <div className="flex items-center gap-0.5">
-                    <div className="w-1 h-5 bg-white rounded-full animate-pulse" />
-                    <div className="w-1 h-7 bg-white rounded-full animate-pulse delay-75" />
-                    <div className="w-1 h-4 bg-white rounded-full animate-pulse delay-150" />
-                  </div>
-                ) : (
-                  <Play size={30} fill="white" className="text-white ml-1" />
-                )}
-              </button>
-              <button
-                onClick={handlePlaySlow}
-                disabled={isPlaying}
-                className="w-12 h-12 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center hover:bg-gray-200 transition-all active:scale-95 border border-gray-200"
-                title="Slow"
-              >
-                <Turtle size={22} />
               </button>
             </div>
 

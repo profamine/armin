@@ -27,6 +27,7 @@ import {
   MicOff
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getApiUrl } from '../apiConfig';
 
 // ===== Types =====
 interface Message {
@@ -170,13 +171,11 @@ function MessageBubble({
   message,
   onRate,
   onCopy,
-  onSpeak,
 }: {
   key?: React.Key;
   message: Message;
   onRate: (id: number, rating: 'up' | 'down') => void;
   onCopy: (text: string) => void;
-  onSpeak: (text: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
@@ -295,13 +294,6 @@ function MessageBubble({
                   title="Copy"
                 >
                   {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} className="text-gray-400" />}
-                </button>
-                <button
-                  onClick={() => onSpeak(message.text)}
-                  className="p-1 rounded-full hover:bg-gray-100 transition-colors"
-                  title="Listen"
-                >
-                  <Volume2 size={12} className="text-gray-400" />
                 </button>
                 <button
                   onClick={() => onRate(message.id, 'up')}
@@ -495,35 +487,6 @@ export default function ChatScreen() {
     navigator.clipboard.writeText(text).catch(() => {});
   };
 
-  const handleSpeak = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      // Try to use native Arabic voice if possible
-      const voices = window.speechSynthesis.getVoices();
-      const arabicVoice = voices.find(v => v.lang.startsWith('ar'));
-      
-      if (arabicVoice || voices.length === 0) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'ar-SA';
-        utterance.rate = 0.8;
-        if (arabicVoice) utterance.voice = arabicVoice;
-        utterance.onerror = () => {
-          // Fallback silencieux (mode hors-ligne)
-        };
-        window.speechSynthesis.speak(utterance);
-        return;
-      }
-    }
-    
-    // Fallback : Web Speech API sans voix spécifique (hors-ligne)
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'ar-SA';
-      utterance.rate = 0.8;
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
   const handleClearChat = () => {
     setMessages([
       {
@@ -625,7 +588,6 @@ export default function ChatScreen() {
             message={msg}
             onRate={handleRate}
             onCopy={handleCopy}
-            onSpeak={handleSpeak}
           />
         ))}
 

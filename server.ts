@@ -90,34 +90,6 @@ async function startServer(): Promise<void> {
     }
   );
 
-  // ── Route /api/tts (Google Translate Fallback, NO AI) ───────────────────
-  app.get('/api/tts', async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { text, lang } = req.query;
-      if (!text || typeof text !== 'string') {
-        res.status(400).json({ error: '`text` is required.' });
-        return;
-      }
-
-      const ttsLang = lang === 'ar' ? 'ar' : (lang === 'hy' ? 'hy' : 'ar');
-      const url = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=${ttsLang}&q=${encodeURIComponent(text)}`;
-
-      const fetchRes = await fetch(url);
-      if (!fetchRes.ok) {
-        throw new Error(`Google TTS request failed with status: ${fetchRes.status}`);
-      }
-
-      res.set('Content-Type', 'audio/mpeg');
-      res.set('Cache-Control', 'public, max-age=3600');
-      
-      const buffer = await fetchRes.arrayBuffer();
-      res.send(Buffer.from(buffer));
-    } catch (err) {
-      console.error('TTS API Error:', err);
-      res.status(400).json({ error: String(err) });
-    }
-  });
-
   // ── Route /api/transcribe ────────────────────────────────────────────────
   // STT endpoint. Excepts { audioData: "base64...", mimeType: "audio/webm" }
   app.post('/api/transcribe', async (req: Request, res: Response): Promise<void> => {

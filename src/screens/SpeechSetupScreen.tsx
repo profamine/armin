@@ -9,6 +9,7 @@ import {
   ChevronRight, ChevronLeft, Smartphone, Settings, SkipForward
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getApiUrl } from '../apiConfig';
 
 interface Props {
   onDone: () => void;
@@ -23,7 +24,7 @@ export default function SpeechSetupScreen({ onDone }: Props) {
   const { language } = useLanguage();
   const ar = language === 'ar';
 
-  const [step, setStep]       = useState<StepId>('synthesis');
+  const [step, setStep]       = useState<StepId>('recognition');
   const [ttsState, setTtsState] = useState<TestState>('idle');
   const [micState, setMicState] = useState<TestState>('idle');
   const [micLevel, setMicLevel] = useState(0);
@@ -100,17 +101,12 @@ export default function SpeechSetupScreen({ onDone }: Props) {
     const performServerTTS = () => {
       fallbackTriggeredRef.current = true;
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-      // Mode hors-ligne : Web Speech API sans voix spécifique
-      if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance('مرحباً');
-        utterance.lang = 'ar-SA';
-        utterance.rate = 0.8;
-        utterance.onend = () => setTtsState('ok');
-        utterance.onerror = () => setTtsState('fail');
-        window.speechSynthesis.speak(utterance);
-      } else {
-        setTtsState('fail');
-      }
+      // Use the primed audio context if possible, or just create a new one
+      const audioToPlay = audioPrimer || new Audio();
+      audioToPlay.src = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=ar&q=${encodeURIComponent('\u0645\u0631\u062d\u0628\u0627\u064b')}`;
+      audioToPlay.onended = () => setTtsState('ok');
+      audioToPlay.onerror = () => setTtsState('fail');
+      audioToPlay.play().catch(() => setTtsState('fail'));
     };
 
     if (!('speechSynthesis' in window)) {
