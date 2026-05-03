@@ -2,14 +2,11 @@ name: Build APK - Armin Arabic-Armenian
 
 on:
   push:
-    branches:
-      - master
-      - main
+    branches: [ master, main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Source
         uses: actions/checkout@v4
@@ -25,24 +22,12 @@ jobs:
           npm install
           npm install @capacitor/core @capacitor/android @capacitor/cli
 
-      - name: Replace Capacitor Config (ts → json)
+      # Cette étape est indispensable pour que import.meta.env.VITE_GEMINI_API_KEY fonctionne
+      - name: Create .env file for Vite
         run: |
-          rm -f capacitor.config.ts
-          cat > capacitor.config.json << 'CAPEOF'
-          {
-            "appId": "com.armin.arabic.armenian",
-            "appName": "Armin",
-            "webDir": "dist",
-            "server": {
-              "androidScheme": "https",
-              "allowNavigation": ["*"]
-            }
-          }
-          CAPEOF
+          echo "VITE_GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
 
       - name: Build Web Project
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: npm run build
 
       - name: Setup Java
@@ -52,34 +37,53 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Remove existing Android platform
-        run: rm -rf android
-
       - name: Add Android Platform
-        run: npx cap add android
+        run: |
+          rm -rf android
+          npx cap add android
+          npx cap sync android
 
-      - name: Capacitor Sync
-        run: npx cap sync android
-
-      - name: Set Java 17 in Gradle Properties
+      - name: Set Java 17 Compatibility
         run: |
           echo "org.gradle.java.home=${JAVA_HOME}" >> android/gradle.properties
+          sed -i 's/targetCompatibility = .*/targetCompatibility = JavaVersion.VERSION_17/' android/app/build.gradle
+          sed -i 's/sourceCompatibility = .*/sourceCompatibility = JavaVersion.VERSION_17/' android/app/build.gradle
 
-      - name: Inject Android Permissions
+      - name: Fix Android Manifest
         run: |
+          # Nettoyage et injection des permissions micro
+          sed -i '/android.permission.INTERNET/d' android/app/src/main/AndroidManifest.xml
           sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />' android/app/src/main/AndroidManifest.xml
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
 
-      - name: Fix Armenian strings
+      - name: Fix Strings Resources
         run: |
+          # Valeurs par défaut
+          cat > android/app/src/main/res/values/strings.xml << 'STREOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">Armin</string>
+              <string name="title_activity_main">Armin</string>
+              <string name="package_name">com.armin.arabic.armenian</string>
+              <string name="custom_url_scheme">com.armin.arabic.armenian</string>
+              <string name="permgrouplab_microphone">Microphone</string>
+              <string name="permgroupdesc_microphone">For voice recording</string>
+              <string name="perm_label_record_audio">Record Audio</string>
+              <string name="perm_desc_record_audio">The app needs microphone access for pronunciation check.</string>
+              <string name="capacitor_ready_title">Ready!</string>
+              <string name="capacitor_features_title">Audio Setup</string>
+              <string name="capacitor_tts_label">TTS Reading</string>
+              <string name="capacitor_mic_label">Microphone</string>
+              <string name="capacitor_start_button">Start</string>
+          </resources>
+          STREOF
+          # Valeurs Arméniennes
           mkdir -p android/app/src/main/res/values-hy
           cat > android/app/src/main/res/values-hy/strings.xml << 'STREOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <string name="app_name">Արմին</string>
               <string name="title_activity_main">Արմին</string>
-              <string name="package_name">com.armin.arabic.armenian</string>
-              <string name="custom_url_scheme">com.armin.arabic.armenian</string>
               <string name="permgrouplab_microphone">Խոսափող</string>
               <string name="permgroupdesc_microphone">ձայնագրման համար</string>
               <string name="perm_label_record_audio">Ձայնագրում</string>
@@ -92,12 +96,10 @@ jobs:
           </resources>
           STREOF
 
-      - name: Fix Gradle Permissions
-        run: chmod +x android/gradlew
-
-      - name: Assemble Debug APK
+      - name: Build APK
         run: |
           cd android
+          chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
@@ -105,4 +107,3 @@ jobs:
         with:
           name: armin-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
