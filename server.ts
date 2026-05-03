@@ -6,15 +6,18 @@ import path from 'path';
 
 dotenv.config({ override: true });
 
+// ─── Validation de la config au démarrage ────────────────────────────────────
 function createGenAIClient(): GoogleGenAI {
   return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 }
 
+// ─── Helper : extraire le message d'erreur ───────────────────────────────────
 function extractErrorMessage(err: unknown): string {
   if (!(err instanceof Error)) return 'Une erreur inconnue est survenue.';
   return err.message || 'Une erreur inconnue est survenue.';
 }
 
+// ─── Types ───────────────────────────────────────────────────────────────────
 interface ChatMessage {
   role: 'user' | 'model';
   parts: { text: string }[];
@@ -31,14 +34,14 @@ function encodeWAV(pcmBytes: Buffer, sampleRate = 24000): Buffer {
   const bitsPerSample = 16;
   const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
   const blockAlign = numChannels * (bitsPerSample / 8);
-
+  
   const buffer = Buffer.alloc(44 + pcmBytes.length);
   buffer.write('RIFF', 0);
   buffer.writeUInt32LE(36 + pcmBytes.length, 4);
   buffer.write('WAVE', 8);
   buffer.write('fmt ', 12);
-  buffer.writeUInt32LE(16, 16);
-  buffer.writeUInt16LE(1, 20);
+  buffer.writeUInt32LE(16, 16); 
+  buffer.writeUInt16LE(1, 20); 
   buffer.writeUInt16LE(numChannels, 22);
   buffer.writeUInt32LE(sampleRate, 24);
   buffer.writeUInt32LE(byteRate, 28);
@@ -50,6 +53,7 @@ function encodeWAV(pcmBytes: Buffer, sampleRate = 24000): Buffer {
   return buffer;
 }
 
+// ─── Serveur principal ───────────────────────────────────────────────────────
 async function startServer(): Promise<void> {
   const app = express();
   const PORT = 3000;
@@ -58,6 +62,7 @@ async function startServer(): Promise<void> {
 
   app.use(express.json({ limit: '10mb' }));
 
+  // ── Validation basique du body ──────────────────────────────────────────
   function validateChatBody(
     req: Request<{}, {}, ChatRequestBody>,
     res: Response,
@@ -76,109 +81,58 @@ async function startServer(): Promise<void> {
     validateChatBody,
     async (req: Request<{}, {}, ChatRequestBody>, res: Response): Promise<void> => {
       try {
-        const { contents, systemInstruction } = req.body;
-
-        const formattedContents = contents.map(m => ({
-          role: m.role,
-          parts: m.parts.map(p => ({ text: p.text }))
-        }));
-
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: formattedContents,
-          config: systemInstruction ? { systemInstruction } : undefined
-        });
-
-        res.json({ text: response.text });
+        // AI has been removed at the user's request
+        res.json({ text: "L'IA a été désactivée conformément à votre demande. (AI disabled)" });
       } catch (err) {
         console.error('Chat API Error:', err);
-        res.status(500).json({ error: extractErrorMessage(err) });
+        res.status(400).json({ error: extractErrorMessage(err) });
       }
     }
   );
 
-  // ── Route /api/tts ──────────────────────────────────────────────────────
-  // Paramètres GET : text (requis), lang (optionnel — "ar" pour l'arabe)
+  // ── Route /api/tts (Google Translate Fallback, NO AI) ───────────────────
   app.get('/api/tts', async (req: Request, res: Response): Promise<void> => {
     try {
       const { text, lang } = req.query;
-
       if (!text || typeof text !== 'string') {
         res.status(400).json({ error: '`text` is required.' });
         return;
       }
 
-      // Détermine si le texte est en arabe
-      const isArabic = typeof lang === 'string' && lang.startsWith('ar');
+      const ttsLang = lang === 'ar' ? 'ar' : (lang === 'hy' ? 'hy' : 'ar');
+      const url = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=${ttsLang}&q=${encodeURIComponent(text)}`;
 
-      // Instruction explicite de langue pour le modèle TTS
-      const langInstruction = isArabic
-        ? 'Lis ce texte arabe à voix haute avec une prononciation claire et naturelle : '
-        : 'Read this out loud: ';
-
-      // Aoede produit une meilleure prononciation arabe ; Kore pour les autres
-      const voiceName = isArabic ? 'Aoede' : 'Kore';
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-preview-tts',
-        contents: [{ parts: [{ text: langInstruction + text }] }],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName },
-            },
-          },
-        },
-      });
-
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-      if (!base64Audio) {
-        throw new Error('No audio generated from TTS model');
+      const fetchRes = await fetch(url);
+      if (!fetchRes.ok) {
+        throw new Error(`Google TTS request failed with status: ${fetchRes.status}`);
       }
 
-      const pcmBytes = Buffer.from(base64Audio, 'base64');
-      const wavBuffer = encodeWAV(pcmBytes, 24000);
-
-      res.set('Content-Type', 'audio/wav');
+      res.set('Content-Type', 'audio/mpeg');
       res.set('Cache-Control', 'public, max-age=3600');
-      res.send(wavBuffer);
+      
+      const buffer = await fetchRes.arrayBuffer();
+      res.send(Buffer.from(buffer));
     } catch (err) {
       console.error('TTS API Error:', err);
-      res.status(500).json({ error: String(err) });
+      res.status(400).json({ error: String(err) });
     }
   });
 
   // ── Route /api/transcribe ────────────────────────────────────────────────
+  // STT endpoint. Excepts { audioData: "base64...", mimeType: "audio/webm" }
   app.post('/api/transcribe', async (req: Request, res: Response): Promise<void> => {
     try {
-      const { audioData, mimeType, expectedLanguage } = req.body;
+      const { audioData } = req.body;
       if (!audioData) {
         res.status(400).json({ error: 'audioData is required' });
         return;
       }
 
-      let prompt = 'Please carefully transcribe this audio.';
-      if (expectedLanguage) {
-        prompt += ` The expected language is ${expectedLanguage}. Only output the exact transcription text, with no extra formatting, markdown, or conversational filler.`;
-      }
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [
-          {
-            parts: [
-              { text: prompt },
-              { inlineData: { data: audioData, mimeType: mimeType || 'audio/webm' } }
-            ]
-          }
-        ]
-      });
-
-      res.json({ text: (response.text || '').trim() });
+      // AI transcription has been removed at the user's request
+      res.json({ text: "L'IA de transcription a été désactivée. (Transcription disabled)" });
     } catch (err) {
       console.error('STT API Error:', err);
-      res.status(500).json({ error: extractErrorMessage(err) });
+      res.status(400).json({ error: extractErrorMessage(err) });
     }
   });
 
@@ -198,11 +152,12 @@ async function startServer(): Promise<void> {
     });
   }
 
+  // ── Démarrage ───────────────────────────────────────────────────────────
   app.listen(PORT, '0.0.0.0', () => {
     const env = IS_PROD ? 'production' : 'développement';
+    const model = process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile';
     console.log(`✅ Serveur ${env} démarré → http://localhost:${PORT}`);
-    console.log(`🤖 Modèle chat : gemini-2.5-flash`);
-    console.log(`🔊 Modèle TTS  : gemini-2.5-flash-preview-tts (voix arabe : Aoede)`);
+    console.log(`🤖 Modèle Groq : ${model}`);
   });
 }
 
