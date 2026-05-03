@@ -49,7 +49,8 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17' # Java 17 est plus stable pour Gradle 8/Android
+          java-version: '17'
+          cache: 'gradle'
 
       - name: Remove existing Android platform
         run: rm -rf android
@@ -60,14 +61,16 @@ jobs:
       - name: Capacitor Sync
         run: npx cap sync android
 
-      # --- ÉTAPE CRUCIALE : Injection des permissions dans le Manifest ---
+      - name: Set Java 17 in Gradle Properties
+        run: |
+          echo "org.gradle.java.home=${JAVA_HOME}" >> android/gradle.properties
+
       - name: Inject Android Permissions
         run: |
           sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />' android/app/src/main/AndroidManifest.xml
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
 
-      # --- Correction du texte Arménien ---
-      - name: Fix Armenian strings (permissions screen)
+      - name: Fix Armenian strings
         run: |
           mkdir -p android/app/src/main/res/values-hy
           cat > android/app/src/main/res/values-hy/strings.xml << 'STREOF'
@@ -82,7 +85,7 @@ jobs:
               <string name="perm_label_record_audio">Ձայնագրում</string>
               <string name="perm_desc_record_audio">Հավելվածը կարող է ձայնագրել ձեր խոսքը արտասանության ստուգման համար</string>
               <string name="capacitor_ready_title">Պատրաստ է!</string>
-              <string name="capacitor_features_title">Ձայնի կարગավորում</string>
+              <string name="capacitor_features_title">Ձայնի կարգավորում</string>
               <string name="capacitor_tts_label">Ձայնային ընթերցում (TTS)</string>
               <string name="capacitor_mic_label">Խոսափող (արտասանության համար)</string>
               <string name="capacitor_start_button">Սկսել սովորել</string>
@@ -103,10 +106,3 @@ jobs:
           name: armin-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
-
-  verify:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check APK exists
-        run: echo "APK built successfully ✅"
