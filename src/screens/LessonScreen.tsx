@@ -31,7 +31,6 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { getApiUrl } from '../apiConfig';
 import { lessonsData, type LessonData, type LessonStep, type QuizOption } from '../data/lessons';
 
 // ===== Sound Effects (Real Web Audio + Vibration) =====
@@ -503,30 +502,17 @@ export default function LessonScreen({
     const cacheKey = `${step.arabic}__${speed}`;
 
     const fallbackToServerTTS = () => {
-      const cacheHit = audioCache.current.get(cacheKey);
-      const audioUrl = cacheHit ?? `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=ar&q=${encodeURIComponent(step.arabic)}`;
-
-      const audio = audioPrimer || new Audio();
-      audio.src = audioUrl;
-      currentAudio.current = audio;
-      audio.playbackRate = speed;
-      audio.onended = () => setIsPlaying(false);
-      audio.onerror = () => setIsPlaying(false);
-
-      if (!cacheHit) {
-        // Mise en cache du blob pour éviter les appels répétés
-        fetch(audioUrl)
-          .then(r => r.blob())
-          .then(blob => {
-            const url = URL.createObjectURL(blob);
-            audioCache.current.set(cacheKey, url);
-          })
-          .catch(() => {});
-      }
-
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => setIsPlaying(false));
+      // Mode hors-ligne : utiliser Web Speech API sans voix spécifique
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(step.arabic);
+        utterance.lang = 'ar-SA';
+        utterance.rate = speed < 1 ? 0.7 : 1.0;
+        utterance.onend = () => setIsPlaying(false);
+        utterance.onerror = () => setIsPlaying(false);
+        window.speechSynthesis.speak(utterance);
+      } else {
+        setIsPlaying(false);
       }
     };
 

@@ -27,7 +27,6 @@ import {
   MicOff
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { getApiUrl } from '../apiConfig';
 
 // ===== Types =====
 interface Message {
@@ -509,17 +508,20 @@ export default function ChatScreen() {
         utterance.rate = 0.8;
         if (arabicVoice) utterance.voice = arabicVoice;
         utterance.onerror = () => {
-          // Fallback to Google TTS if native fails
-          new Audio(`https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=ar&q=${encodeURIComponent(text)}`).play().catch(() => {});
+          // Fallback silencieux (mode hors-ligne)
         };
         window.speechSynthesis.speak(utterance);
         return;
       }
     }
     
-    // Fallback if no native voice or no Speech Synthesis
-    const audio = new Audio(`https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=ar&q=${encodeURIComponent(text)}`);
-    audio.play().catch(() => {});
+    // Fallback : Web Speech API sans voix spécifique (hors-ligne)
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ar-SA';
+      utterance.rate = 0.8;
+      window.speechSynthesis.speak(utterance);
+    }
   };
 
   const handleClearChat = () => {
