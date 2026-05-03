@@ -501,14 +501,18 @@ export default function LessonScreen({
       const audio = new Audio(audioUrl);
       currentAudio.current = audio;
       audio.playbackRate = speed;
-      audio.onended = () => setIsPlaying(false);
-      audio.onerror = () => setIsPlaying(false);
+      audio.onended = () => { currentAudio.current = null; setIsPlaying(false); };
+      audio.onerror = () => { currentAudio.current = null; setIsPlaying(false); };
 
       if (!cacheHit) {
         // Mise en cache du blob pour éviter les appels répétés
         fetch(audioUrl)
-          .then(r => r.blob())
+          .then(r => {
+            if (!r.ok) throw new Error(`TTS error ${r.status}`);
+            return r.blob();
+          })
           .then(blob => {
+            if (!blob.type.startsWith('audio/')) throw new Error('Invalid audio blob');
             const url = URL.createObjectURL(blob);
             audioCache.current.set(cacheKey, url);
           })
@@ -551,6 +555,7 @@ export default function LessonScreen({
       const timeoutMsg = setTimeout(() => {
         if (!fallbackTriggered) {
           fallbackTriggered = true;
+          window.speechSynthesis.cancel(); // stop lingering synthesis before fallback
           fallbackToServerTTS();
         }
       }, 3000);
