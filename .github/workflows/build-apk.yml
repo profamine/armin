@@ -32,7 +32,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21'
           cache: 'gradle'
 
       - name: Add Android Platform
@@ -41,17 +41,11 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Force Java 17 on ALL modules
+      - name: Configure Java Compatibility
         run: |
-          # 1. Force le home Java dans Gradle
           echo "org.gradle.java.home=${JAVA_HOME}" >> android/gradle.properties
-          
-          # 2. Cherche TOUS les fichiers build.gradle (app et plugins) et remplace Java 21 par 17
-          find android -name "build.gradle" -exec sed -i 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' {} +
-          find android -name "build.gradle" -exec sed -i 's/sourceCompatibility = 21/sourceCompatibility = 17/g' {} +
-          find android -name "build.gradle" -exec sed -i 's/targetCompatibility = 21/targetCompatibility = 17/g' {} +
-          
-          # 3. Correction spécifique pour les versions récentes de Gradle
+          find android -name "build.gradle" -exec sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g' {} +
+          find android -name "build.gradle" -exec sed -i 's/JavaVersion.VERSION_11/JavaVersion.VERSION_17/g' {} +
           sed -i 's/targetCompatibility = .*/targetCompatibility = JavaVersion.VERSION_17/' android/app/build.gradle
           sed -i 's/sourceCompatibility = .*/sourceCompatibility = JavaVersion.VERSION_17/' android/app/build.gradle
 
@@ -88,7 +82,7 @@ jobs:
               <string name="app_name">Արմին</string>
               <string name="title_activity_main">Արմին</string>
               <string name="permgrouplab_microphone">Խոսափող</string>
-              <string name="permgroupdesc_microphone">ձαινագրման համար</string>
+              <string name="permgroupdesc_microphone">ձայնագրման համար</string>
               <string name="perm_label_record_audio">Ձայնագրում</string>
               <string name="perm_desc_record_audio">Հավելվածը կարող է ձայնագրել ձեր խոսքը արտասանության ստուգման համար</string>
               <string name="capacitor_ready_title">Պատրաստ է!</string>
